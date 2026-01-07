@@ -1,0 +1,558 @@
+// Agrio India - Database Schema
+// PostgreSQL with Aiven
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  FARMER
+  DEALER
+  ADMIN
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  VIEWER
+}
+
+enum CouponStatus {
+  UNUSED
+  USED
+  EXPIRED
+}
+
+enum RewardType {
+  CASHBACK
+  DISCOUNT
+  GIFT
+  POINTS
+}
+
+enum RedemptionStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  CLAIMED
+  REJECTED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum NotificationType {
+  REWARD
+  PROMO
+  ORDER
+  SYSTEM
+}
+
+enum BannerLinkType {
+  PRODUCT
+  CATEGORY
+  URL
+  NONE
+}
+
+enum ConfigValueType {
+  STRING
+  JSON
+  BOOLEAN
+  INTEGER
+}
+
+// ============================================
+// AUTHENTICATION
+// ============================================
+
+model OtpVerification {
+  id          String   @id @default(uuid())
+  phoneNumber String   @map("phone_number")
+  otpCode     String   @map("otp_code")
+  requestId   String   @unique @map("request_id")
+  expiresAt   DateTime @map("expires_at")
+  isVerified  Boolean  @default(false) @map("is_verified")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([phoneNumber])
+  @@map("otp_verifications")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// USERS
+// ============================================
+
+model User {
+  id          String    @id @default(uuid())
+  phoneNumber String    @unique @map("phone_number")
+  fullName    String?   @map("full_name")
+  email       String?
+  role        UserRole  @default(FARMER)
+  pinCode     String?   @map("pin_code")
+  fullAddress String?   @map("full_address")
+  state       String?
+  district    String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastLogin   DateTime? @map("last_login")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  preferences    UserPreference?
+  crops          UserCrop[]
+  refreshTokens  RefreshToken[]
+  couponsUsed    Coupon[]
+  redemptions    ScanRedemption[]
+  notifications  Notification[]
+  supportTickets SupportTicket[]
+
+  @@index([phoneNumber])
+  @@index([pinCode])
+  @@index([state])
+  @@map("users")
+}
+
+model UserPreference {
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  prefLanguage      String   @default("en") @map("pref_language")
+  pushNotifications Boolean  @default(true) @map("push_notifications")
+  smsNotifications  Boolean  @default(true) @map("sms_notifications")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserCrop {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  cropId    String   @map("crop_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cropId])
+  @@map("user_crops")
+}
+
+// ============================================
+// CROPS
+// ============================================
+
+model Crop {
+  id           String  @id
+  name         String
+  nameHi       String  @map("name_hi")
+  imageUrl     String? @map("image_url")
+  isActive     Boolean @default(true) @map("is_active")
+  displayOrder Int     @default(0) @map("display_order")
+
+  userCrops UserCrop[]
+
+  @@map("crops")
+}
+
+// ============================================
+// CATEGORIES & PRODUCTS
+// ============================================
+
+model Category {
+  id           String  @id
+  name         String
+  nameHi       String  @map("name_hi")
+  slug         String  @unique
+  imageUrl     String? @map("image_url")
+  parentId     String? @map("parent_id")
+  level        Int     @default(0)
+  path         String
+  isActive     Boolean @default(true) @map("is_active")
+  displayOrder Int     @default(0) @map("display_order")
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                 String   @id @default(uuid())
+  name               String
+  nameHi             String   @map("name_hi")
+  slug               String   @unique
+  categoryId         String   @map("category_id")
+  description        String?
+  descriptionHi      String?  @map("description_hi")
+  composition        String?
+  dosage             String?
+  applicationMethod  String?  @map("application_method")
+  targetPests        Json?    @default("[]") @map("target_pests")
+  suitableCrops      Json?    @default("[]") @map("suitable_crops")
+  safetyPrecautions  Json?    @default("[]") @map("safety_precautions")
+  images             Json?    @default("[]")
+  technicalDetails   Json?    @map("technical_details")
+  isBestSeller       Boolean  @default(false) @map("is_best_seller")
+  isActive           Boolean  @default(true) @map("is_active")
+  salesCount         Int      @default(0) @map("sales_count")
+  displayOrder       Int      @default(0) @map("display_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  category            Category             @relation(fields: [categoryId], references: [id])
+  packSizes           ProductPackSize[]
+  coupons             Coupon[]
+  distributorProducts DistributorProduct[]
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isBestSeller])
+  @@map("products")
+}
+
+model ProductPackSize {
+  id           String   @id @default(uuid())
+  productId    String   @map("product_id")
+  size         String
+  sku          String   @unique
+  mrp          Decimal? @db.Decimal(10, 2)
+  sellingPrice Decimal? @map("selling_price") @db.Decimal(10, 2)
+  isActive     Boolean  @default(true) @map("is_active")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_pack_sizes")
+}
+
+// ============================================
+// DISTRIBUTORS
+// ============================================
+
+model Distributor {
+  id                String   @id @default(uuid())
+  name              String
+  businessName      String   @map("business_name")
+  phone             String
+  whatsapp          String?
+  email             String?
+  addressStreet     String?  @map("address_street")
+  addressArea       String?  @map("address_area")
+  addressCity       String?  @map("address_city")
+  addressPincode    String?  @map("address_pincode")
+  addressState      String?  @map("address_state")
+  locationLat       Decimal? @map("location_lat") @db.Decimal(10, 8)
+  locationLng       Decimal? @map("location_lng") @db.Decimal(11, 8)
+  openingHours      Json?    @map("opening_hours")
+  signatureImageUrl String?  @map("signature_image_url")
+  stampImageUrl     String?  @map("stamp_image_url")
+  isVerified        Boolean  @default(false) @map("is_verified")
+  isActive          Boolean  @default(true) @map("is_active")
+  rating            Decimal? @db.Decimal(2, 1)
+  reviewCount       Int      @default(0) @map("review_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  coverage    DistributorCoverage[]
+  products    DistributorProduct[]
+  redemptions ScanRedemption[]
+
+  @@index([addressPincode])
+  @@index([addressState])
+  @@map("distributors")
+}
+
+model DistributorCoverage {
+  id            String @id @default(uuid())
+  distributorId String @map("distributor_id")
+  pincode       String
+
+  distributor Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+
+  @@unique([distributorId, pincode])
+  @@index([pincode])
+  @@map("distributor_coverage")
+}
+
+model DistributorProduct {
+  id            String  @id @default(uuid())
+  distributorId String  @map("distributor_id")
+  productId     String  @map("product_id")
+  isAvailable   Boolean @default(true) @map("is_available")
+
+  distributor Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([distributorId, productId])
+  @@map("distributor_products")
+}
+
+// ============================================
+// CAMPAIGNS & COUPONS
+// ============================================
+
+model Campaign {
+  id          String    @id @default(uuid())
+  name        String
+  nameHi      String?   @map("name_hi")
+  description String?
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tiers   CampaignTier[]
+  coupons Coupon[]
+
+  @@map("campaigns")
+}
+
+model CampaignTier {
+  id             String     @id @default(uuid())
+  campaignId     String     @map("campaign_id")
+  tierName       String     @map("tier_name")
+  rewardName     String     @map("reward_name")
+  rewardNameHi   String?    @map("reward_name_hi")
+  rewardType     RewardType @map("reward_type")
+  rewardValue    Decimal    @map("reward_value") @db.Decimal(10, 2)
+  probability    Decimal    @db.Decimal(5, 4)
+  maxWinners     Int?       @map("max_winners")
+  currentWinners Int        @default(0) @map("current_winners")
+
+  campaign    Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  redemptions ScanRedemption[]
+
+  @@map("campaign_tiers")
+}
+
+model Coupon {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  productId   String?      @map("product_id")
+  batchNumber String?      @map("batch_number")
+  campaignId  String?      @map("campaign_id")
+  status      CouponStatus @default(UNUSED)
+  usedBy      String?      @map("used_by")
+  usedAt      DateTime?    @map("used_at")
+  expiryDate  DateTime?    @map("expiry_date")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  product     Product?         @relation(fields: [productId], references: [id])
+  campaign    Campaign?        @relation(fields: [campaignId], references: [id])
+  user        User?            @relation(fields: [usedBy], references: [id])
+  redemptions ScanRedemption[]
+
+  @@index([code])
+  @@index([status])
+  @@index([productId])
+  @@map("coupons")
+}
+
+model ScanRedemption {
+  id                      String           @id @default(uuid())
+  userId                  String           @map("user_id")
+  couponId                String           @map("coupon_id")
+  campaignTierId          String?          @map("campaign_tier_id")
+  prizeType               RewardType       @map("prize_type")
+  prizeValue              Decimal          @map("prize_value") @db.Decimal(10, 2)
+  assignedRank            Int?             @map("assigned_rank")
+  status                  RedemptionStatus @default(PENDING_VERIFICATION)
+  verifiedByDistributorId String?          @map("verified_by_distributor_id")
+  acknowledgmentFileUrl   String?          @map("acknowledgment_file_url")
+  scannedAt               DateTime         @default(now()) @map("scanned_at")
+  verifiedAt              DateTime?        @map("verified_at")
+  claimedAt               DateTime?        @map("claimed_at")
+
+  user        User          @relation(fields: [userId], references: [id])
+  coupon      Coupon        @relation(fields: [couponId], references: [id])
+  tier        CampaignTier? @relation(fields: [campaignTierId], references: [id])
+  distributor Distributor?  @relation(fields: [verifiedByDistributorId], references: [id])
+
+  @@index([userId])
+  @@index([couponId])
+  @@map("scan_redemptions")
+}
+
+// ============================================
+// SUPPORT & CMS
+// ============================================
+
+model SupportTicket {
+  id           String         @id @default(uuid())
+  ticketNumber String         @unique @map("ticket_number")
+  userId       String?        @map("user_id")
+  name         String
+  mobile       String
+  email        String?
+  subject      String
+  message      String
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  assignedTo   String?        @map("assigned_to")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  resolvedAt   DateTime?      @map("resolved_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([ticketNumber])
+  @@index([userId])
+  @@map("support_tickets")
+}
+
+model Faq {
+  id           String  @id @default(uuid())
+  question     String
+  questionHi   String? @map("question_hi")
+  answer       String
+  answerHi     String? @map("answer_hi")
+  category     String?
+  displayOrder Int     @default(0) @map("display_order")
+  isActive     Boolean @default(true) @map("is_active")
+
+  @@map("faqs")
+}
+
+model CmsPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  titleHi   String?  @map("title_hi")
+  content   String
+  contentHi String?  @map("content_hi")
+  isActive  Boolean  @default(true) @map("is_active")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cms_pages")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  titleHi   String?          @map("title_hi")
+  message   String
+  messageHi String?          @map("message_hi")
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ============================================
+// APP CONFIGURATION
+// ============================================
+
+model AppBanner {
+  id           String         @id @default(uuid())
+  section      String
+  imageUrl     String         @map("image_url")
+  imageUrlHi   String?        @map("image_url_hi")
+  title        String?
+  linkType     BannerLinkType @default(NONE) @map("link_type")
+  linkValue    String?        @map("link_value")
+  displayOrder Int            @default(0) @map("display_order")
+  startDate    DateTime?      @map("start_date")
+  endDate      DateTime?      @map("end_date")
+  isActive     Boolean        @default(true) @map("is_active")
+
+  @@index([section])
+  @@map("app_banners")
+}
+
+model SystemConfig {
+  key         String          @id
+  value       String
+  type        ConfigValueType @default(STRING)
+  description String?
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+// ============================================
+// ADMIN USERS
+// ============================================
+
+model AdminUser {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
+
+model AdminRefreshToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  adminUserId String   @map("admin_user_id")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([adminUserId])
+  @@map("admin_refresh_tokens")
+}
+
+// ============================================
+// PINCODE LOOKUP
+// ============================================
+
+model PincodeData {
+  id       String @id @default(uuid())
+  pincode  String @unique
+  state    String
+  district String
+  area     String?
+
+  @@index([pincode])
+  @@map("pincode_data")
+}
+
