@@ -7,6 +7,10 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, getToken
 import { AuthenticatedRequest, ErrorCodes } from '../types';
 import { AppError } from '../middleware/errorHandler';
 
+// Check if running in development mode
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const DEV_OTP_CODE = '123456'; // Dev bypass OTP code
+
 // POST /api/v1/auth/send-otp
 export const sendOtp = async (
   req: Request,
@@ -66,35 +70,40 @@ export const verifyOtp = async (
   try {
     const { phone_number, otp_code } = verifyOtpSchema.parse(req.body);
 
-    // Find OTP record
-    const otpRecord = await prisma.otpVerification.findFirst({
-      where: {
-        phoneNumber: phone_number,
-        isVerified: false,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // DEV MODE: Allow bypass with special OTP code
+    const isDevBypass = isDevelopment && otp_code === DEV_OTP_CODE;
 
-    if (!otpRecord) {
-      throw new AppError('No OTP request found. Please request a new OTP.', ErrorCodes.OTP_INVALID, 400);
+    if (!isDevBypass) {
+      // Find OTP record
+      const otpRecord = await prisma.otpVerification.findFirst({
+        where: {
+          phoneNumber: phone_number,
+          isVerified: false,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!otpRecord) {
+        throw new AppError('No OTP request found. Please request a new OTP.', ErrorCodes.OTP_INVALID, 400);
+      }
+
+      // Check expiry
+      if (isOtpExpired(otpRecord.expiresAt)) {
+        await prisma.otpVerification.delete({ where: { id: otpRecord.id } });
+        throw new AppError('OTP has expired. Please request a new one.', ErrorCodes.OTP_EXPIRED, 400);
+      }
+
+      // Verify OTP
+      if (otpRecord.otpCode !== otp_code) {
+        throw new AppError('Invalid OTP code.', ErrorCodes.OTP_INVALID, 400);
+      }
+
+      // Mark OTP as verified
+      await prisma.otpVerification.update({
+        where: { id: otpRecord.id },
+        data: { isVerified: true },
+      });
     }
-
-    // Check expiry
-    if (isOtpExpired(otpRecord.expiresAt)) {
-      await prisma.otpVerification.delete({ where: { id: otpRecord.id } });
-      throw new AppError('OTP has expired. Please request a new one.', ErrorCodes.OTP_EXPIRED, 400);
-    }
-
-    // Verify OTP
-    if (otpRecord.otpCode !== otp_code) {
-      throw new AppError('Invalid OTP code.', ErrorCodes.OTP_INVALID, 400);
-    }
-
-    // Mark OTP as verified
-    await prisma.otpVerification.update({
-      where: { id: otpRecord.id },
-      data: { isVerified: true },
-    });
 
     // Check if user exists
     let user = await prisma.user.findUnique({
@@ -271,3 +280,109 @@ export const logout = async (
   }
 };
 
+// POST /api/v1/auth/dev-login (Development only - bypasses OTP)
+export const devLogin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    // Only allow in development mode
+    if (!isDevelopment) {
+      return sendError(res, ErrorCodes.FORBIDDEN, 'Dev login is not available in production', 403);
+    }
+
+    const { phone_number } = req.body;
+
+    if (!phone_number) {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'phone_number is required', 400);
+    }
+
+    // Check if user exists
+    let user = await prisma.user.findUnique({
+      where: { phoneNumber: phone_number },
+      include: {
+        preferences: true,
+        crops: {
+          include: { crop: true },
+        },
+      },
+    });
+
+    const isNewUser = !user;
+
+    if (!user) {
+      // Create new user
+      user = await prisma.user.create({
+        data: {
+          phoneNumber: phone_number,
+          preferences: {
+            create: {
+              prefLanguage: 'en',
+            },
+          },
+        },
+        include: {
+          preferences: true,
+          crops: {
+            include: { crop: true },
+          },
+        },
+      });
+    } else {
+      // Update last login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
+    }
+
+    // Generate tokens
+    const tokenPayload = {
+      userId: user.id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+    };
+
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Store refresh token
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: getTokenExpiry(process.env.JWT_REFRESH_EXPIRES_IN || '30d'),
+      },
+    });
+
+    // Build response based on user status
+    const userData = isNewUser ? {
+      id: user.id,
+      phone_number: user.phoneNumber,
+    } : {
+      id: user.id,
+      phone_number: user.phoneNumber,
+      full_name: user.fullName,
+      email: user.email,
+      role: user.role,
+      pin_code: user.pinCode,
+      state: user.state,
+      district: user.district,
+      language: user.preferences?.prefLanguage || 'en',
+      crop_preferences: user.crops.map(uc => uc.crop.id),
+      is_active: user.isActive,
+      created_at: user.createdAt,
+    };
+
+    sendSuccess(res, {
+      token: accessToken,
+      refresh_token: refreshToken,
+      is_new_user: isNewUser,
+      user: userData,
+      _dev_note: '⚠️ This endpoint is for development only and will be disabled in production',
+    }, 'Dev login successful');
+  } catch (error) {
+    next(error);
+  }
+};

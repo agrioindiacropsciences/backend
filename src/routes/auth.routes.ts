@@ -17,5 +17,9 @@ router.post('/refresh-token', authController.refreshToken);
 // POST /api/v1/auth/logout
 router.post('/logout', authenticate, authController.logout);
 
+// POST /api/v1/auth/dev-login (Development only - bypasses OTP verification)
+// ⚠️ This endpoint is disabled in production
+router.post('/dev-login', authController.devLogin);
+
 export default router;
 
