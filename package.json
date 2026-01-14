@@ -11,7 +11,7 @@
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "postinstall": "prisma generate",
-    "render-build": "npm install && npx prisma generate && npx tsc",
+    "render-build": "npm install && npx prisma generate && npx tsc && mkdir -p dist/config && cp src/config/*.json dist/config/ 2>/dev/null || true",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
