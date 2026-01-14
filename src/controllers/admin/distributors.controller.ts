@@ -4,6 +4,7 @@ import { sendSuccess, sendError } from '../../utils/response';
 import { AdminRequest, ErrorCodes } from '../../types';
 import { parsePagination, createPagination, sanitizeSearchQuery } from '../../utils/helpers';
 import { Prisma } from '@prisma/client';
+import { uploadToCloudinary } from '../../utils/cloudinary';
 
 // GET /api/v1/admin/distributors
 export const listDistributors = async (
@@ -96,6 +97,24 @@ export const createDistributor = async (
   try {
     const data = req.body;
 
+    // Handle image uploads
+    let signatureImageUrl = data.signature_image_url;
+    let stampImageUrl = data.stamp_image_url;
+
+    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+      if (files['signature']?.[0]) {
+        const result = await uploadToCloudinary(files['signature'][0].path, 'distributors/signatures');
+        signatureImageUrl = result.url;
+      }
+
+      if (files['stamp']?.[0]) {
+        const result = await uploadToCloudinary(files['stamp'][0].path, 'distributors/stamps');
+        stampImageUrl = result.url;
+      }
+    }
+
     const distributor = await prisma.distributor.create({
       data: {
         name: data.name,
@@ -111,6 +130,8 @@ export const createDistributor = async (
         locationLat: data.location?.lat,
         locationLng: data.location?.lng,
         openingHours: data.opening_hours,
+        signatureImageUrl,
+        stampImageUrl,
         isVerified: data.is_verified || false,
         isActive: data.is_active || true,
       },
@@ -210,6 +231,21 @@ export const updateDistributor = async (
     if (data.opening_hours !== undefined) updateData.openingHours = data.opening_hours;
     if (data.is_verified !== undefined) updateData.isVerified = data.is_verified;
     if (data.is_active !== undefined) updateData.isActive = data.is_active;
+
+    // Handle image uploads
+    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+      if (files['signature']?.[0]) {
+        const result = await uploadToCloudinary(files['signature'][0].path, 'distributors/signatures');
+        updateData.signatureImageUrl = result.url;
+      }
+
+      if (files['stamp']?.[0]) {
+        const result = await uploadToCloudinary(files['stamp'][0].path, 'distributors/stamps');
+        updateData.stampImageUrl = result.url;
+      }
+    }
 
     await prisma.distributor.update({
       where: { id },

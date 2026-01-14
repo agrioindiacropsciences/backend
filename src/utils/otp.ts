@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 
-// Generate a 6-digit OTP
+// Generate a 4-digit OTP
 export const generateOtp = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
 // Generate unique request ID
@@ -53,11 +53,11 @@ export const sendOtpViaSms = async (
     });
 
     const data = await response.json() as { type?: string; message?: string };
-    
+
     if (data.type === 'success') {
       return { success: true, message: 'OTP sent successfully' };
     }
-    
+
     return { success: false, message: data.message || 'Failed to send OTP' };
   } catch (error) {
     console.error('MSG91 Error:', error);

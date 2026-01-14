@@ -19,7 +19,7 @@ export const sendOtp = async (
 ): Promise<void | Response> => {
   try {
     const { phone_number } = sendOtpSchema.parse(req.body);
-    
+
     // Generate OTP and request ID
     const otp = generateOtp();
     const requestId = generateRequestId();
@@ -42,7 +42,7 @@ export const sendOtp = async (
 
     // Send OTP via SMS
     const smsResult = await sendOtpViaSms(phone_number, otp);
-    
+
     // In production, log error if SMS fails but still allow OTP to be stored
     if (!smsResult.success) {
       if (process.env.NODE_ENV === 'production') {
@@ -70,8 +70,9 @@ export const verifyOtp = async (
   try {
     const { phone_number, otp_code } = verifyOtpSchema.parse(req.body);
 
-    // DEV MODE: Allow bypass with special OTP code
-    const isDevBypass = isDevelopment && otp_code === DEV_OTP_CODE;
+    // DEV MODE or No MSG91: Allow bypass with ANY 4-digit OTP code
+    const msg91NotConfigured = !process.env.MSG91_API_KEY;
+    const isDevBypass = (isDevelopment || msg91NotConfigured) && otp_code.length === 4;
 
     if (!isDevBypass) {
       // Find OTP record
@@ -103,6 +104,8 @@ export const verifyOtp = async (
         where: { id: otpRecord.id },
         data: { isVerified: true },
       });
+    } else {
+      console.log(`🔓 [BYPASS] Verified ${phone_number} with OTP: ${otp_code}`);
     }
 
     // Check if user exists

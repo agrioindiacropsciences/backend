@@ -53,7 +53,7 @@ export const globalSearch = async (
         name: p.name,
         name_hi: p.nameHi,
         slug: p.slug,
-        image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null,
+        image_url: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] as string : null,
       }));
     }
 

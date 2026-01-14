@@ -21,11 +21,11 @@ export const getNotifications = async (
     const unreadOnly = parseBoolean(req.query.unread_only as string);
 
     const where: Record<string, unknown> = { userId };
-    
+
     if (type) {
       where.type = type.toUpperCase();
     }
-    
+
     if (unreadOnly) {
       where.isRead = false;
     }
@@ -113,4 +113,53 @@ export const markAllAsRead = async (
     next(error);
   }
 };
+// DELETE /api/v1/notifications/:id
+export const deleteNotification = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId!;
 
+    const notification = await prisma.notification.findUnique({
+      where: { id },
+    });
+
+    if (!notification) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'Notification not found', 404);
+    }
+
+    if (notification.userId !== userId) {
+      return sendError(res, ErrorCodes.FORBIDDEN, 'Access denied', 403);
+    }
+
+    await prisma.notification.delete({
+      where: { id },
+    });
+
+    sendSuccess(res, undefined, 'Notification deleted');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/v1/notifications
+export const deleteAllNotifications = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const userId = req.userId!;
+
+    await prisma.notification.deleteMany({
+      where: { userId },
+    });
+
+    sendSuccess(res, undefined, 'All notifications deleted');
+  } catch (error) {
+    next(error);
+  }
+};

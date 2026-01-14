@@ -5,6 +5,8 @@ import { createProfileSchema, updateProfileSchema, updateLanguageSchema, syncCro
 import { AuthenticatedRequest, ErrorCodes } from '../types';
 import { AppError } from '../middleware/errorHandler';
 import { parsePagination, createPagination } from '../utils/helpers';
+import { uploadToCloudinary } from '../utils/cloudinary';
+
 // GET /api/v1/user/profile
 export const getProfile = async (
   req: AuthenticatedRequest,
@@ -36,6 +38,7 @@ export const getProfile = async (
       full_address: user.fullAddress,
       state: user.state,
       district: user.district,
+      profile_image_url: user.profileImageUrl,
       language: user.preferences?.prefLanguage || 'en',
       crop_preferences: user.crops.map(uc => ({
         id: uc.crop.id,
@@ -59,18 +62,21 @@ export const createProfile = async (
 ): Promise<void | Response> => {
   try {
     const data = createProfileSchema.parse(req.body);
-    
+
     // Lookup state/district from pincode
     let state: string | undefined;
     let district: string | undefined;
-    
+
     const pincodeData = await prisma.pincodeData.findUnique({
       where: { pincode: data.pin_code },
     });
-    
+
     if (pincodeData) {
-      state = pincodeData.state;
-      district = pincodeData.district;
+      state = data.state || pincodeData.state;
+      district = data.district || pincodeData.district;
+    } else {
+      state = data.state;
+      district = data.district;
     }
 
     const updatedUser = await prisma.user.update({
@@ -92,6 +98,7 @@ export const createProfile = async (
       pin_code: updatedUser.pinCode,
       state: updatedUser.state,
       district: updatedUser.district,
+      profile_image_url: updatedUser.profileImageUrl,
     });
   } catch (error) {
     next(error);
@@ -106,13 +113,16 @@ export const updateProfile = async (
 ): Promise<void | Response> => {
   try {
     const data = updateProfileSchema.parse(req.body);
-    
+
     const updateData: Record<string, unknown> = {};
-    
+
     if (data.full_name !== undefined) updateData.fullName = data.full_name;
     if (data.email !== undefined) updateData.email = data.email || null;
     if (data.full_address !== undefined) updateData.fullAddress = data.full_address;
-    
+    if (data.state !== undefined) updateData.state = data.state;
+    if (data.district !== undefined) updateData.district = data.district;
+
+
     // If pincode changed, lookup state/district
     if (data.pin_code) {
       updateData.pinCode = data.pin_code;
@@ -139,6 +149,7 @@ export const updateProfile = async (
       full_address: updatedUser.fullAddress,
       state: updatedUser.state,
       district: updatedUser.district,
+      profile_image_url: updatedUser.profileImageUrl,
     }, 'Profile updated successfully');
   } catch (error) {
     next(error);
@@ -289,7 +300,7 @@ export const getCouponHistory = async (
     );
 
     const statusFilter = req.query.status as string | undefined;
-    
+
     const where: Record<string, unknown> = { usedBy: req.userId! };
     if (statusFilter) {
       where.status = statusFilter.toUpperCase();
@@ -349,7 +360,7 @@ export const getRewards = async (
     );
 
     const statusFilter = req.query.status as string | undefined;
-    
+
     const where: Record<string, unknown> = { userId: req.userId! };
     if (statusFilter) {
       where.status = statusFilter.toUpperCase();
@@ -418,5 +429,35 @@ export const getRewards = async (
     next(error);
   }
 };
+
+// PATCH /api/v1/user/profile/avatar
+export const updateAvatar = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    if (!req.file) {
+      throw new AppError('No file uploaded', ErrorCodes.VALIDATION_ERROR, 400);
+    }
+
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(req.file.path, 'user_profiles');
+    const imageUrl = result.url;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.userId! },
+      data: { profileImageUrl: imageUrl },
+    });
+
+    sendSuccess(res, {
+      profile_image_url: updatedUser.profileImageUrl,
+    }, 'Avatar updated successfully');
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 

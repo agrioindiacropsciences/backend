@@ -5,6 +5,8 @@ import { adminCreateProductSchema } from '../../utils/validation';
 import { AdminRequest, ErrorCodes } from '../../types';
 import { parsePagination, createPagination, generateSlug, sanitizeSearchQuery } from '../../utils/helpers';
 import { Prisma } from '@prisma/client';
+import { uploadToCloudinary } from '../../utils/cloudinary';
+import { NotificationService } from '../../utils/notification.service';
 
 // GET /api/v1/admin/products
 export const listProducts = async (
@@ -93,6 +95,15 @@ export const createProduct = async (
       return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Category not found', 400);
     }
 
+    // Handle image uploads
+    const imageUrls: string[] = [...(data.images || [])];
+    if (req.files && Array.isArray(req.files)) {
+      for (const file of req.files) {
+        const result = await uploadToCloudinary(file.path, 'products');
+        imageUrls.push(result.url);
+      }
+    }
+
     const product = await prisma.product.create({
       data: {
         name: data.name,
@@ -107,7 +118,7 @@ export const createProduct = async (
         targetPests: data.target_pests || [],
         suitableCrops: data.suitable_crops || [],
         safetyPrecautions: data.safety_precautions || [],
-        images: data.images || [],
+        images: imageUrls,
         isBestSeller: data.is_best_seller,
         isActive: data.is_active,
         packSizes: data.pack_sizes ? {
@@ -123,6 +134,16 @@ export const createProduct = async (
         category: { select: { name: true } },
         packSizes: true,
       },
+    });
+
+    // Notify users about the new product (Fire and forget)
+    const firstImageUrl = imageUrls.length > 0 ? imageUrls[0] : undefined;
+    const lowestPrice = product.packSizes.length > 0
+      ? Math.min(...product.packSizes.map(ps => Number(ps.sellingPrice || 0)))
+      : 0;
+
+    NotificationService.notifyNewProduct(product.name, lowestPrice, firstImageUrl).catch(err => {
+      console.error('Failed to send product notification:', err);
     });
 
     sendSuccess(res, {
@@ -191,7 +212,17 @@ export const updateProduct = async (
     if (data.target_pests !== undefined) updateData.targetPests = data.target_pests;
     if (data.suitable_crops !== undefined) updateData.suitableCrops = data.suitable_crops;
     if (data.safety_precautions !== undefined) updateData.safetyPrecautions = data.safety_precautions;
-    if (data.images !== undefined) updateData.images = data.images;
+
+    // Handle image uploads
+    let imageUrls: string[] = Array.isArray(data.images) ? data.images : (product.images as string[] || []);
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      for (const file of req.files) {
+        const result = await uploadToCloudinary(file.path, 'products');
+        imageUrls.push(result.url);
+      }
+    }
+    updateData.images = imageUrls;
+
     if (data.is_best_seller !== undefined) updateData.isBestSeller = data.is_best_seller;
     if (data.is_active !== undefined) updateData.isActive = data.is_active;
 

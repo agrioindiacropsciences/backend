@@ -102,6 +102,7 @@ export const getAllProducts = async (
       })),
       safety_precautions: product.safetyPrecautions,
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       is_best_seller: product.isBestSeller,
       is_active: product.isActive,
       sales_count: product.salesCount,
@@ -152,6 +153,7 @@ export const getBestSellers = async (
         name_hi: product.category.nameHi,
       },
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       pack_sizes: product.packSizes,
       is_best_seller: product.isBestSeller,
     })));
@@ -195,6 +197,7 @@ export const getNewArrivals = async (
         name_hi: product.category.nameHi,
       },
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       pack_sizes: product.packSizes.map(ps => ({
         size: ps.size,
         sku: ps.sku,
@@ -245,6 +248,7 @@ export const getFeaturedProducts = async (
         name_hi: product.category.nameHi,
       },
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       pack_sizes: product.packSizes.map(ps => ({
         size: ps.size,
         sku: ps.sku,
@@ -309,6 +313,7 @@ export const searchProducts = async (
         name_hi: product.category.nameHi,
       },
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       pack_sizes: product.packSizes.map(ps => ({
         size: ps.size,
         sku: ps.sku,
@@ -345,8 +350,8 @@ export const getRecommended = async (
         isActive: true,
         OR: cropIds.length > 0
           ? cropIds.map(cropId => ({
-              suitableCrops: { array_contains: [cropId] },
-            }))
+            suitableCrops: { array_contains: [cropId] },
+          }))
           : undefined,
       },
       include: {
@@ -373,6 +378,7 @@ export const getRecommended = async (
         name_hi: product.category.nameHi,
       },
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       suitable_crops: product.suitableCrops,
     })));
   } catch (error) {
@@ -447,6 +453,7 @@ export const getProductBySlug = async (
       })),
       safety_precautions: product.safetyPrecautions,
       images: product.images,
+      image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       technical_details: product.technicalDetails,
       is_best_seller: product.isBestSeller,
       related_products: relatedProducts.map(p => ({

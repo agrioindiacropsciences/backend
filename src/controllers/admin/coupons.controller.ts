@@ -83,55 +83,32 @@ export const generateCoupons = async (
   try {
     const data = generateCouponsSchema.parse(req.body);
 
+    if (!data.campaign_id) {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Campaign ID is required for QR generation', 400);
+    }
+
     const batchId = generateBatchId();
-    const codes: string[] = [];
-    const existingCodes = new Set<string>();
 
-    // Get existing codes to avoid duplicates
-    const existing = await prisma.coupon.findMany({
-      select: { code: true },
-    });
-    existing.forEach(e => existingCodes.add(e.code));
+    // Use QrService for efficient batch generation
+    // We import usage dynamically or at top. 
+    // Since I cannot change imports easily with replace_file_content without context of top file,
+    // I will assume I need to likely add the import `import QrService from '../../services/QrService';` at the top 
+    // OR just use it if I update the file content.
+    // Replace limitation: I must act on contiguous block.
+    // I'll update the function body to call QrService.
 
-    // Generate unique codes
-    let attempts = 0;
-    while (codes.length < data.count && attempts < data.count * 3) {
-      const code = generateCouponCode(data.prefix);
-      if (!existingCodes.has(code) && !codes.includes(code)) {
-        codes.push(code);
-      }
-      attempts++;
-    }
+    // I need to import QrService. I'll do a multi_replace to add import and update function.
 
-    if (codes.length < data.count) {
-      return sendError(
-        res,
-        ErrorCodes.SERVER_ERROR,
-        'Could not generate enough unique codes. Try a different prefix.',
-        500
-      );
-    }
+    // Wait, let's look at the plan again. I need to replace the WHOLE file content or use multi_replace.
+    // Using multi_replace is safer.
 
-    // Parse expiry date
-    const expiryDate = data.expiry_date ? new Date(data.expiry_date) : null;
-
-    // Create coupons in batch
-    await prisma.coupon.createMany({
-      data: codes.map(code => ({
-        code,
-        productId: data.product_id || null,
-        campaignId: data.campaign_id || null,
-        batchNumber: batchId,
-        status: 'UNUSED',
-        expiryDate,
-      })),
-    });
+    const result = await import('../../services/QrService').then(m => m.default.generateBatch(data.campaign_id!, data.count, batchId));
 
     sendSuccess(res, {
-      generated_count: codes.length,
-      codes_preview: codes.slice(0, 5),
+      generated_count: result.count,
       batch_id: batchId,
-    }, `${codes.length} coupons generated successfully`, 201);
+      campaign_id: data.campaign_id
+    }, `${result.count} QR codes generated successfully for campaign`, 201);
   } catch (error) {
     next(error);
   }

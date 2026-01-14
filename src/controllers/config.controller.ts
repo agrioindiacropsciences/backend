@@ -11,12 +11,12 @@ export const getAppConfig = async (
   try {
     // Get all system config
     const configs = await prisma.systemConfig.findMany();
-    
+
     // Parse configs into object
     const configMap: Record<string, unknown> = {};
     for (const config of configs) {
       let value: unknown = config.value;
-      
+
       switch (config.type) {
         case 'JSON':
           try {
@@ -32,7 +32,7 @@ export const getAppConfig = async (
           value = parseInt(config.value);
           break;
       }
-      
+
       configMap[config.key] = value;
     }
 
@@ -46,9 +46,11 @@ export const getAppConfig = async (
         force_update: configMap['force_update'] || false,
       },
       contact: {
-        support_email: configMap['support_email'] || 'support@agrioindia.com',
-        support_phone: configMap['support_phone'] || '+91 1800 123 4567',
-        whatsapp: configMap['whatsapp_number'] || '+91 9123456789',
+        email: configMap['support_email'] || 'support@agrio.in',
+        phone: configMap['support_phone'] || '+91 1800-123-4567',
+        whatsapp: configMap['whatsapp_number'] || '+91 6206696007',
+        support_email: configMap['support_email'] || 'support@agrio.in',
+        support_phone: configMap['support_phone'] || '+91 1800-123-4567',
       },
       social: {
         facebook: configMap['facebook_url'] || '',
@@ -74,7 +76,7 @@ export const getBanners = async (
 ): Promise<void | Response> => {
   try {
     const section = req.query.section as string | undefined;
-    
+
     const where: Record<string, unknown> = {
       isActive: true,
       OR: [

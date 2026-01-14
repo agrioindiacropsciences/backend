@@ -123,6 +123,8 @@ model User {
   fullAddress String?   @map("full_address")
   state       String?
   district    String?
+  profileImageUrl String? @map("profile_image_url")
+
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   lastLogin   DateTime? @map("last_login")
@@ -322,16 +324,24 @@ model DistributorProduct {
 // CAMPAIGNS & COUPONS
 // ============================================
 
+
+enum DistributionType {
+  SEQUENTIAL
+  RANDOM
+}
+
 model Campaign {
-  id          String    @id @default(uuid())
-  name        String
-  nameHi      String?   @map("name_hi")
-  description String?
-  startDate   DateTime  @map("start_date")
-  endDate     DateTime  @map("end_date")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id               String           @id @default(uuid())
+  name             String
+  nameHi           String?          @map("name_hi")
+  description      String?
+  startDate        DateTime         @map("start_date")
+  endDate          DateTime         @map("end_date")
+  isActive         Boolean          @default(true) @map("is_active")
+  distributionType DistributionType @default(RANDOM) @map("distribution_type")
+  totalQrCodes     Int              @default(0) @map("total_qr_codes")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
 
   tiers   CampaignTier[]
   coupons Coupon[]
@@ -348,6 +358,7 @@ model CampaignTier {
   rewardType     RewardType @map("reward_type")
   rewardValue    Decimal    @map("reward_value") @db.Decimal(10, 2)
   probability    Decimal    @db.Decimal(5, 4)
+  priority       Int        @default(0)
   maxWinners     Int?       @map("max_winners")
   currentWinners Int        @default(0) @map("current_winners")
 

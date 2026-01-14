@@ -12,47 +12,62 @@ export const getDistributors = async (
   next: NextFunction
 ): Promise<void | Response> => {
   try {
+    const q = req.query.q as string;
     const pincode = req.query.pincode as string;
     const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
     const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
+    const radiusKm = req.query.radius ? parseFloat(req.query.radius as string) : 50; // Default 50km radius for discovery
+
     const { page, limit, skip } = parsePagination(
       req.query.page as string,
       req.query.limit as string
     );
 
-    // If no pincode provided, return error
-    if (!pincode) {
-      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Pincode is required', 400);
-    }
-
-    // Find distributors covering this pincode
-    const coverageRecords = await prisma.distributorCoverage.findMany({
-      where: { pincode },
-      select: { distributorId: true },
-    });
-
-    const distributorIds = coverageRecords.map(c => c.distributorId);
-
-    // Also include distributors with matching address pincode
     const where: Prisma.DistributorWhereInput = {
       isActive: true,
-      OR: [
-        { id: { in: distributorIds } },
-        { addressPincode: pincode },
-      ],
     };
 
-    const [distributors, total] = await Promise.all([
-      prisma.distributor.findMany({
-        where,
-        orderBy: { rating: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.distributor.count({ where }),
-    ]);
+    // 1. Filter by Pincode or Coverage if pincode provided
+    if (pincode) {
+      const coverageRecords = await prisma.distributorCoverage.findMany({
+        where: { pincode },
+        select: { distributorId: true },
+      });
+      const coveredDistributorIds = coverageRecords.map(c => c.distributorId);
 
-    const formattedDistributors = distributors.map(d => {
+      where.OR = [
+        ...(where.OR || []),
+        { id: { in: coveredDistributorIds } },
+        { addressPincode: pincode },
+      ];
+    }
+
+    // 2. Filter by Search Query if provided
+    if (q) {
+      const searchTerms = {
+        contains: q,
+        mode: Prisma.QueryMode.insensitive,
+      };
+      where.OR = [
+        ...(where.OR || []),
+        { name: searchTerms },
+        { businessName: searchTerms },
+        { addressCity: searchTerms },
+        { addressStreet: searchTerms },
+        { addressArea: searchTerms },
+        { addressState: searchTerms },
+        { addressPincode: searchTerms },
+      ];
+    }
+
+    // Fetch distributors (we'll filter by distance in JS for precision)
+    let distributors = await prisma.distributor.findMany({
+      where,
+      orderBy: { rating: 'desc' },
+    });
+
+    // 3. Radius Filtering & Distance Calculation
+    let formattedDistributors = distributors.map(d => {
       let distanceKm: number | null = null;
       if (lat && lng && d.locationLat && d.locationLng) {
         distanceKm = calculateDistance(
@@ -92,8 +107,16 @@ export const getDistributors = async (
       };
     });
 
-    // Sort by distance if coordinates provided
+    // If coordinates are provided, prioritize results within radius AND sort by distance
     if (lat && lng) {
+      // If we're strictly searching "nearby" (no text query/pincode), filter by radius
+      // But if there's a specific search, just use distance for sorting
+      if (!q && !pincode) {
+        formattedDistributors = formattedDistributors.filter(d =>
+          d.distance_km !== null && d.distance_km <= radiusKm
+        );
+      }
+
       formattedDistributors.sort((a, b) => {
         if (a.distance_km === null) return 1;
         if (b.distance_km === null) return -1;
@@ -101,8 +124,12 @@ export const getDistributors = async (
       });
     }
 
+    // Manual Pagination after processing
+    const total = formattedDistributors.length;
+    const paginatedDistributors = formattedDistributors.slice(skip, skip + limit);
+
     sendSuccess(res, {
-      distributors: formattedDistributors,
+      distributors: paginatedDistributors,
       pagination: createPagination(total, page, limit),
     });
   } catch (error) {

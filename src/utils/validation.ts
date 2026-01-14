@@ -24,7 +24,7 @@ export const sendOtpSchema = z.object({
 
 export const verifyOtpSchema = z.object({
   phone_number: phoneNumberSchema,
-  otp_code: z.string().length(6, 'OTP must be 6 digits'),
+  otp_code: z.string().length(4, 'OTP must be 4 digits'),
 });
 
 export const refreshTokenSchema = z.object({
@@ -37,6 +37,8 @@ export const createProfileSchema = z.object({
   pin_code: pincodeSchema,
   full_address: z.string().max(500).optional(),
   email: emailSchema,
+  state: z.string().optional(),
+  district: z.string().optional(),
 });
 
 export const updateProfileSchema = z.object({
@@ -44,6 +46,8 @@ export const updateProfileSchema = z.object({
   email: emailSchema,
   pin_code: pincodeSchema.optional(),
   full_address: z.string().max(500).optional(),
+  state: z.string().optional(),
+  district: z.string().optional(),
 });
 
 export const updateLanguageSchema = z.object({

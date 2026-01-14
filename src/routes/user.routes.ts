@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as userController from '../controllers/user.controller';
 import { authenticate } from '../middleware/auth';
+import { upload } from '../middleware/upload';
 
 const router = Router();
 
@@ -10,8 +11,12 @@ router.use(authenticate);
 // GET /api/v1/user/profile
 router.get('/profile', userController.getProfile);
 
-// POST /api/v1/user/profile (Create/Complete profile)
+// POST/PATCH /api/v1/user/profile (Create/Complete profile)
 router.post('/profile', userController.createProfile);
+router.patch('/profile', userController.createProfile);
+
+// PATCH /api/v1/user/profile/avatar
+router.patch('/profile/avatar', upload.single('avatar'), userController.updateAvatar);
 
 // PUT /api/v1/user/profile
 router.put('/profile', userController.updateProfile);
@@ -35,4 +40,3 @@ router.get('/coupons', userController.getCouponHistory);
 router.get('/rewards', userController.getRewards);
 
 export default router;
-

@@ -7,7 +7,10 @@ import couponsRoutes from './coupons.routes';
 import distributorsRoutes from './distributors.routes';
 import reportsRoutes from './reports.routes';
 import settingsRoutes from './settings.routes';
+import cmsRoutes from './cms.routes';
+import bannersRoutes from './banners.routes';
 import { adminAuth } from '../../middleware/auth';
+
 import { adminRateLimiter } from '../../middleware/rateLimiter';
 
 const router = Router();
@@ -26,6 +29,9 @@ router.use('/coupons', adminAuth, couponsRoutes);
 router.use('/distributors', adminAuth, distributorsRoutes);
 router.use('/reports', adminAuth, reportsRoutes);
 router.use('/settings', adminAuth, settingsRoutes);
+router.use('/cms', adminAuth, cmsRoutes);
+router.use('/banners', adminAuth, bannersRoutes);
 
 export default router;
+
 
