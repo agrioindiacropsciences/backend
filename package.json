@@ -40,14 +40,13 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "uuid": "^10.0.0",
     "zod": "^3.23.8"
   },
-  "devDependencies": {
-    "prisma": "^5.22.0",
-    "tsx": "^4.19.2"
-  },
+  "devDependencies": {},
   "engines": {
     "node": ">=18.0.0"
   }
