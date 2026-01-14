@@ -8,10 +8,10 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate && tsc && mkdir -p dist/config && cp src/config/*.json dist/config/ 2>/dev/null || true",
     "start": "node dist/index.js",
     "postinstall": "prisma generate",
-    "render-build": "npm install && npx prisma generate && npx tsc && mkdir -p dist/config && cp src/config/*.json dist/config/ 2>/dev/null || true",
+    "render-build": "npm run build",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
