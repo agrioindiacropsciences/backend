@@ -11,7 +11,7 @@
     "build": "prisma generate && tsc && mkdir -p dist/config && cp src/config/*.json dist/config/ 2>/dev/null || true",
     "start": "node dist/index.js",
     "postinstall": "prisma generate",
-    "render-build": "npm run build",
+    "render-build": "npm run build && npm run db:migrate:prod",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
