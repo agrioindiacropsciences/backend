@@ -357,6 +357,7 @@ model CampaignTier {
   rewardNameHi   String?    @map("reward_name_hi")
   rewardType     RewardType @map("reward_type")
   rewardValue    Decimal    @map("reward_value") @db.Decimal(10, 2)
+  imageUrl       String?    @map("image_url")
   probability    Decimal    @db.Decimal(5, 4)
   priority       Int        @default(0)
   maxWinners     Int?       @map("max_winners")

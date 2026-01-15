@@ -370,7 +370,13 @@ export const getRewards = async (
       prisma.scanRedemption.findMany({
         where,
         include: {
-          coupon: { select: { code: true } },
+          coupon: {
+            include: {
+              product: {
+                select: { name: true, nameHi: true }
+              }
+            }
+          },
           tier: true,
           distributor: { select: { id: true, businessName: true } },
         },
@@ -387,28 +393,50 @@ export const getRewards = async (
       }),
     ]);
 
-    const formattedRewards = redemptions.map(r => ({
-      id: r.id,
-      coupon_code: r.coupon.code,
-      prize: r.tier ? {
-        id: r.tier.id,
-        name: r.tier.rewardName,
-        name_hi: r.tier.rewardNameHi,
-        type: r.tier.rewardType,
-        value: Number(r.tier.rewardValue),
-      } : {
-        type: r.prizeType,
-        value: Number(r.prizeValue),
-      },
-      status: r.status,
-      won_at: r.scannedAt,
-      redeemed_at: r.claimedAt,
-      acknowledgment_file_url: r.acknowledgmentFileUrl,
-      verified_by_distributor: r.distributor ? {
-        id: r.distributor.id,
-        name: r.distributor.businessName,
-      } : null,
-    }));
+    const formattedRewards = redemptions.map(r => {
+      const prizeType = r.tier?.rewardType || r.prizeType;
+
+      // Use tier image if available
+      let imageUrl = r.tier?.imageUrl;
+
+      // Fallback images if no image in DB
+      if (!imageUrl) {
+        if (prizeType === 'GIFT') {
+          imageUrl = 'https://res.cloudinary.com/dyumjsohc/image/upload/v1768457092/rewards/hero_splendor.jpg';
+        } else if (prizeType === 'DISCOUNT') {
+          imageUrl = 'https://res.cloudinary.com/dyumjsohc/image/upload/v1768457093/rewards/discount_voucher.jpg';
+        } else {
+          imageUrl = 'https://res.cloudinary.com/dyumjsohc/image/upload/v1768457092/rewards/cashback_voucher.jpg';
+        }
+      }
+
+      return {
+        id: r.id,
+        coupon_code: r.coupon.code,
+        prize: r.tier ? {
+          id: r.tier.id,
+          name: r.tier.rewardName,
+          name_hi: r.tier.rewardNameHi,
+          type: r.tier.rewardType,
+          value: Number(r.tier.rewardValue),
+          image_url: imageUrl,
+        } : {
+          type: r.prizeType,
+          value: Number(r.prizeValue),
+          image_url: imageUrl,
+        },
+        status: r.status,
+        won_at: r.scannedAt,
+        redeemed_at: r.claimedAt,
+        acknowledgment_file_url: r.acknowledgmentFileUrl,
+        verified_by_distributor: r.distributor ? {
+          id: r.distributor.id,
+          name: r.distributor.businessName,
+        } : null,
+        product_name: r.coupon?.product?.name || r.coupon?.product?.nameHi || 'Agrio Product',
+        reward_image_url: imageUrl,
+      };
+    });
 
     const totalRewards = summary.reduce((sum, s) => sum + s._count, 0);
     const pending = summary.find(s => s.status === 'PENDING_VERIFICATION')?._count || 0;

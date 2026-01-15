@@ -74,6 +74,17 @@ export class QrService {
     }
 
     /**
+     * Get a QR code image URL with the company logo embedded
+     */
+    getQrUrl(code: string) {
+        // Use a permanent, publicly accessible Cloudinary URL for the logo
+        // This ensures QuickChart can always fetch the image regardless of local development state
+        const logoUrl = 'https://res.cloudinary.com/dyumjsohc/image/upload/v1768456817/assets/agrio_logo.png';
+
+        return `https://quickchart.io/qr?text=${encodeURIComponent(code)}&centerImageUrl=${encodeURIComponent(logoUrl)}&centerImageSize=0.15&size=300&ecLevel=H`;
+    }
+
+    /**
      * Redeem a QR code
      */
     async redeemCode(code: string, userId: string) {

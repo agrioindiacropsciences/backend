@@ -13,6 +13,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve static files
+app.use(express.static('public'));
+
 // Security middleware
 app.use(helmet());
 
@@ -24,17 +27,17 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    
+
     // In development, allow all localhost origins
     if (isDevelopment && origin.includes('localhost')) {
       return callback(null, true);
     }
-    
+
     // Check if origin is in allowed list
     if (corsOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
     // Allow all origins for now (can restrict in production)
     return callback(null, true);
   },
