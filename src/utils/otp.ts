@@ -1,18 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
+import twilio from 'twilio';
 
-// Generate a 4-digit OTP
-export const generateOtp = (): string => {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-};
-
-// Generate unique request ID
+// Generate unique request ID (for tracking verification requests)
 export const generateRequestId = (): string => {
   return uuidv4();
 };
 
-// Calculate OTP expiry (5 minutes from now)
+// Calculate OTP expiry (10 minutes from now - Twilio default)
 export const getOtpExpiry = (): Date => {
-  return new Date(Date.now() + 5 * 60 * 1000);
+  return new Date(Date.now() + 10 * 60 * 1000);
 };
 
 // Check if OTP is expired
@@ -20,78 +16,124 @@ export const isOtpExpired = (expiresAt: Date): boolean => {
   return new Date() > expiresAt;
 };
 
-// MSG91 Integration
+// Initialize Twilio client
+const getTwilioClient = () => {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!accountSid || !authToken) {
+    return null;
+  }
+
+  return twilio(accountSid, authToken);
+};
+
+// Twilio Verify Service SID
+const getTwilioServiceSid = (): string | null => {
+  return process.env.TWILIO_VERIFY_SERVICE_SID || null;
+};
+
+// Twilio Integration - Send OTP via Verify API
 export const sendOtpViaSms = async (
   phoneNumber: string,
-  otp: string
-): Promise<{ success: boolean; message: string }> => {
-  const apiKey = process.env.MSG91_API_KEY;
-  const senderId = process.env.MSG91_SENDER_ID;
-  const templateId = process.env.MSG91_TEMPLATE_ID;
+  otp?: string // Not used with Twilio - Twilio generates OTP automatically
+): Promise<{ success: boolean; message: string; verificationSid?: string }> => {
+  const serviceSid = getTwilioServiceSid();
+  const client = getTwilioClient();
 
-  // If MSG91 is not configured, simulate success in development
-  if (!apiKey || process.env.NODE_ENV === 'development') {
-    console.log(`📱 [DEV] OTP for ${phoneNumber}: ${otp}`);
+  // If Twilio is not configured, simulate success in development
+  if (!serviceSid || !client || process.env.NODE_ENV === 'development') {
+    console.log(`📱 [DEV] OTP verification requested for ${phoneNumber}`);
     return { success: true, message: 'OTP sent (dev mode)' };
   }
 
   try {
-    const response = await fetch('https://api.msg91.com/api/v5/otp', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        authkey: apiKey,
-      },
-      body: JSON.stringify({
-        template_id: templateId,
-        mobile: `91${phoneNumber}`,
-        sender: senderId,
-        otp,
-        otp_length: 6,
-        otp_expiry: 5,
-      }),
-    });
+    // Format phone number (ensure it starts with +)
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
 
-    const data = await response.json() as { type?: string; message?: string };
+    // Send verification code via Twilio Verify API
+    const verification = await client.verify.v2
+      .services(serviceSid)
+      .verifications
+      .create({
+        to: formattedPhone,
+        channel: 'sms',
+      });
 
-    if (data.type === 'success') {
-      return { success: true, message: 'OTP sent successfully' };
+    if (verification.status === 'pending') {
+      return {
+        success: true,
+        message: 'OTP sent successfully via SMS',
+        verificationSid: verification.sid,
+      };
     }
 
-    return { success: false, message: data.message || 'Failed to send OTP' };
-  } catch (error) {
-    console.error('MSG91 Error:', error);
-    return { success: false, message: 'SMS service unavailable' };
+    return {
+      success: false,
+      message: `Verification status: ${verification.status}`,
+    };
+  } catch (error: any) {
+    console.error('Twilio Error:', error);
+    
+    // Handle specific Twilio trial account errors
+    if (error?.code === 21608) {
+      const errorMessage = 'Phone number not verified. For Twilio trial accounts, please verify this number at: https://console.twilio.com/us1/develop/phone-numbers/manage/verified';
+      return { success: false, message: errorMessage };
+    }
+    
+    const errorMessage = error?.message || 'Failed to send OTP via SMS';
+    return { success: false, message: errorMessage };
   }
 };
 
-// Verify OTP with MSG91 (optional - we're using DB verification)
-export const verifyOtpWithMsg91 = async (
+// Twilio Integration - Verify OTP via Verify API
+export const verifyOtpWithTwilio = async (
   phoneNumber: string,
-  otp: string
-): Promise<boolean> => {
-  const apiKey = process.env.MSG91_API_KEY;
+  code: string
+): Promise<{ valid: boolean; message: string; status?: string }> => {
+  const serviceSid = getTwilioServiceSid();
+  const client = getTwilioClient();
 
-  if (!apiKey || process.env.NODE_ENV === 'development') {
-    return true; // Skip MSG91 verification in dev
+  // If Twilio is not configured, allow bypass in development
+  if (!serviceSid || !client || process.env.NODE_ENV === 'development') {
+    // In dev mode, allow "123456" as bypass code
+    if (code === '123456') {
+      console.log(`🔓 [DEV] OTP verification bypassed for ${phoneNumber}`);
+      return { valid: true, message: 'OTP verified (dev mode)' };
+    }
+    return { valid: false, message: 'Invalid OTP (dev mode)' };
   }
 
   try {
-    const response = await fetch(
-      `https://api.msg91.com/api/v5/otp/verify?mobile=91${phoneNumber}&otp=${otp}`,
-      {
-        method: 'GET',
-        headers: {
-          authkey: apiKey,
-        },
-      }
-    );
+    // Format phone number (ensure it starts with +)
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
 
-    const data = await response.json() as { type?: string };
-    return data.type === 'success';
-  } catch (error) {
-    console.error('MSG91 Verify Error:', error);
-    return false;
+    // Verify the code via Twilio Verify API
+    const verificationCheck = await client.verify.v2
+      .services(serviceSid)
+      .verificationChecks
+      .create({
+        to: formattedPhone,
+        code: code,
+      });
+
+    if (verificationCheck.status === 'approved' && verificationCheck.valid) {
+      return {
+        valid: true,
+        message: 'OTP verified successfully',
+        status: verificationCheck.status,
+      };
+    }
+
+    return {
+      valid: false,
+      message: `Verification failed. Status: ${verificationCheck.status}`,
+      status: verificationCheck.status,
+    };
+  } catch (error: any) {
+    console.error('Twilio Verify Error:', error);
+    const errorMessage = error?.message || 'Failed to verify OTP';
+    return { valid: false, message: errorMessage };
   }
 };
 

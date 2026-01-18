@@ -126,6 +126,37 @@ export const generateCouponsSchema = z.object({
   expiry_date: z.string().optional(),
 });
 
+// Campaign Schemas
+export const createCampaignSchema = z.object({
+  name: z.string().min(2).max(100),
+  name_hi: z.string().max(100).optional(),
+  description: z.string().max(1000).optional(),
+  start_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  end_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  distribution_type: z.enum(['SEQUENTIAL', 'RANDOM']).default('RANDOM'),
+  is_active: z.boolean().default(true),
+  tiers: z.array(z.object({
+    tier_name: z.string().min(1).max(100),
+    reward_name: z.string().min(1).max(100),
+    reward_name_hi: z.string().max(100).optional(),
+    reward_type: z.enum(['CASHBACK', 'DISCOUNT', 'GIFT', 'POINTS']),
+    reward_value: z.number().min(0),
+    probability: z.number().min(0).max(1),
+    priority: z.number().int().default(0),
+    max_winners: z.number().int().positive().optional(),
+  })).min(1, 'At least one tier is required'),
+});
+
+export const updateCampaignSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  name_hi: z.string().max(100).optional(),
+  description: z.string().max(1000).optional(),
+  start_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  end_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  distribution_type: z.enum(['SEQUENTIAL', 'RANDOM']).optional(),
+  is_active: z.boolean().optional(),
+});
+
 // Type exports
 export type SendOtpInput = z.infer<typeof sendOtpSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;

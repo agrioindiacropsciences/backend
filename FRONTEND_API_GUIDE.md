@@ -2,7 +2,8 @@
 
 > **Last Updated:** January 11, 2026  
 > **Backend Version:** 1.0.0  
-> **Base URL (Local):** `http://localhost:3001/api/v1`
+> **Base URL (Local):** `http://localhost:3001/api/v1`  
+> **Document Version:** 2.1 (Updated with all endpoints)
 
 ---
 
@@ -354,7 +355,7 @@ const response = await apiCall('/products/recommended?limit=10');
 
 ## 🏷️ Categories
 
-### Get All Categories
+### 1. Get All Categories
 
 ```javascript
 // GET /categories
@@ -384,6 +385,13 @@ const response = await apiCall('/categories');
     }
   ]
 }
+```
+
+### 2. Get Category by ID
+
+```javascript
+// GET /categories/:id
+const response = await apiCall('/categories/insecticide');
 ```
 
 ---
@@ -438,19 +446,21 @@ const response = await apiCall('/user/profile');
   "data": {
     "id": "uuid",
     "phone_number": "9876543210",
-    "name": "John Doe",
+    "full_name": "John Doe",
     "email": "john@example.com",
-    "pincode": "400001",
     "role": "USER",
-    "is_profile_complete": true,
-    "preferences": {
-      "language": "en",
-      "notifications_enabled": true
-    },
-    "crops": [
+    "pin_code": "400001",
+    "full_address": "123 Main Street",
+    "state": "Maharashtra",
+    "district": "Mumbai",
+    "profile_image_url": "https://cloudinary.com/...",
+    "language": "en",
+    "crop_preferences": [
       { "id": "wheat", "name": "Wheat", "name_hi": "गेहूं" }
     ],
-    "created_at": "2026-01-01T00:00:00.000Z"
+    "is_active": true,
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "last_login": "2026-01-10T12:00:00.000Z"
   }
 }
 ```
@@ -462,9 +472,12 @@ const response = await apiCall('/user/profile');
 const response = await apiCall('/user/profile', {
   method: 'POST',
   body: JSON.stringify({
-    name: "John Doe",
-    pincode: "400001",
-    email: "john@example.com"  // optional
+    full_name: "John Doe",
+    pin_code: "400001",
+    email: "john@example.com",  // optional
+    full_address: "123 Main Street",  // optional
+    state: "Maharashtra",  // optional (auto-filled from pincode)
+    district: "Mumbai"  // optional (auto-filled from pincode)
   })
 });
 ```
@@ -476,13 +489,17 @@ const response = await apiCall('/user/profile', {
 const response = await apiCall('/user/profile', {
   method: 'PUT',
   body: JSON.stringify({
-    name: "John Doe Updated",
-    email: "newemail@example.com"
+    full_name: "John Doe Updated",
+    email: "newemail@example.com",
+    pin_code: "400001",
+    full_address: "123 New Street",
+    state: "Maharashtra",
+    district: "Mumbai"
   })
 });
 ```
 
-### 4. Update Language
+### 6. Update Language
 
 ```javascript
 // PUT /user/language
@@ -494,7 +511,7 @@ const response = await apiCall('/user/language', {
 });
 ```
 
-### 5. Get User Stats
+### 7. Get User Stats
 
 ```javascript
 // GET /user/stats
@@ -505,14 +522,15 @@ const response = await apiCall('/user/stats');
   "success": true,
   "data": {
     "total_scans": 15,
-    "total_rewards": 5,
-    "rewards_amount": 500,
-    "coupons_scanned": 20
+    "coupons_won": 5,
+    "rewards_claimed": 3,
+    "last_scan_date": "2026-01-10T12:00:00.000Z",
+    "total_savings": 500
   }
 }
 ```
 
-### 6. Get Crop Preferences
+### 8. Get Crop Preferences
 
 ```javascript
 // GET /user/crops
@@ -521,14 +539,17 @@ const response = await apiCall('/user/crops');
 // Response
 {
   "success": true,
-  "data": [
-    { "id": "wheat", "name": "Wheat", "name_hi": "गेहूं" },
-    { "id": "rice", "name": "Rice", "name_hi": "चावल" }
-  ]
+  "data": {
+    "crop_ids": ["wheat", "rice"],
+    "crops": [
+      { "id": "wheat", "name": "Wheat", "name_hi": "गेहूं" },
+      { "id": "rice", "name": "Rice", "name_hi": "चावल" }
+    ]
+  }
 }
 ```
 
-### 7. Sync Crop Preferences
+### 9. Sync Crop Preferences
 
 ```javascript
 // POST /user/crops
@@ -540,7 +561,7 @@ const response = await apiCall('/user/crops', {
 });
 ```
 
-### 8. Get Coupon History
+### 10. Get Coupon History
 
 ```javascript
 // GET /user/coupons
@@ -563,7 +584,7 @@ const response = await apiCall('/user/coupons');
 }
 ```
 
-### 9. Get User Rewards
+### 11. Get User Rewards
 
 ```javascript
 // GET /user/rewards
@@ -589,24 +610,42 @@ const response = await apiCall('/user/rewards');
 
 ## 🎟️ Coupons (Auth Required)
 
-### 1. Validate Coupon
+### 1. Verify Coupon
 
 ```javascript
-// POST /coupons/validate
-const response = await apiCall('/coupons/validate', {
+// POST /coupons/verify
+const response = await apiCall('/coupons/verify', {
   method: 'POST',
   body: JSON.stringify({
-    code: "ABC123XYZ456"
+    coupon_code: "ABC123XYZ456"
   })
 });
 
-// Response
+// Response (if valid)
 {
   "success": true,
   "data": {
-    "valid": true,
-    "product_name": "Product XYZ",
-    "message": "Coupon is valid! Scan to reveal your prize."
+    "is_valid": true,
+    "coupon": {
+      "id": "uuid",
+      "code": "ABC123XYZ456",
+      "product": {
+        "id": "product-uuid",
+        "name": "Product XYZ"
+      },
+      "batch_number": "BATCH001"
+    },
+    "campaign": {
+      "id": "campaign-uuid",
+      "name": "Campaign Name",
+      "tier": {
+        "id": "tier-uuid",
+        "reward_name": "Cashback ₹100",
+        "reward_name_hi": "कैशबैक ₹100",
+        "reward_type": "CASHBACK",
+        "reward_value": 100
+      }
+    }
   }
 }
 
@@ -614,48 +653,43 @@ const response = await apiCall('/coupons/validate', {
 {
   "success": false,
   "error": {
-    "code": "INVALID_COUPON",
-    "message": "This coupon has already been used"
+    "code": "COUPON_INVALID",
+    "message": "This coupon code is invalid."
   }
 }
 ```
 
-### 2. Scan Coupon (Reveal Prize)
+### 2. Redeem Coupon (Claim Prize)
 
 ```javascript
-// POST /coupons/scan
-const response = await apiCall('/coupons/scan', {
+// POST /coupons/redeem
+// Note: First call /coupons/verify to get coupon_id and campaign_tier_id
+const response = await apiCall('/coupons/redeem', {
   method: 'POST',
   body: JSON.stringify({
-    code: "ABC123XYZ456"
+    coupon_id: "coupon-uuid",
+    campaign_tier_id: "tier-uuid"
   })
 });
 
-// Response (if won)
+// Response
 {
   "success": true,
   "data": {
-    "reward": {
-      "id": "uuid",
-      "type": "CASHBACK",  // CASHBACK, PRODUCT, POINTS, BETTER_LUCK
-      "amount": 100,
-      "message": "🎉 Congratulations! You won ₹100 cashback!"
-    },
-    "coupon": {
-      "code": "ABC123XYZ456",
-      "product_name": "Product XYZ"
-    }
-  }
-}
-
-// If better luck next time
-{
-  "success": true,
-  "data": {
-    "reward": {
-      "type": "BETTER_LUCK",
-      "amount": 0,
-      "message": "Better luck next time! Keep scanning."
+    "redemption": {
+      "id": "redemption-uuid",
+      "coupon_code": "ABC123XYZ456",
+      "prize": {
+        "name": "Cashback ₹100",
+        "name_hi": "कैशबैक ₹100",
+        "description": "Get cashback worth ₹100",
+        "type": "CASHBACK",
+        "value": 100
+      },
+      "status": "PENDING_VERIFICATION",
+      "assigned_rank": 1,
+      "rank_display": "1st Winner",
+      "redeemed_at": "2026-01-10T12:00:00.000Z"
     }
   }
 }
@@ -699,6 +733,107 @@ const response = await apiCall('/distributors?pincode=400001');
 ```javascript
 // GET /distributors/:id
 const response = await apiCall('/distributors/distributor-uuid');
+```
+
+### 3. Get Distributor Coverage
+
+```javascript
+// GET /distributors/:id/coverage
+const response = await apiCall('/distributors/distributor-uuid/coverage');
+
+// Response
+{
+  "success": true,
+  "data": {
+    "distributor_id": "uuid",
+    "coverage_areas": [
+      {
+        "pincode": "400001",
+        "city": "Mumbai",
+        "state": "Maharashtra"
+      }
+    ],
+    "total_products": 50
+  }
+}
+```
+
+---
+
+## 📱 QR Code Scanning (Auth Required)
+
+### Scan and Redeem QR Code
+
+```javascript
+// POST /scan/redeem
+const response = await apiCall('/scan/redeem', {
+  method: 'POST',
+  body: JSON.stringify({
+    code: "QR_CODE_STRING"
+  })
+});
+
+// Response
+{
+  "success": true,
+  "data": {
+    "redemption": {
+      "id": "redemption-uuid",
+      "coupon_code": "ABC123XYZ456",
+      "prize_type": "CASHBACK",
+      "prize_value": 100,
+      "status": "PENDING_VERIFICATION",
+      "scanned_at": "2026-01-10T12:00:00.000Z"
+    },
+    "reward": {
+      "name": "Cashback ₹100",
+      "name_hi": "कैशबैक ₹100",
+      "type": "CASHBACK",
+      "value": 100,
+      "image_url": null
+    },
+    "message": "Reward claimed successfully!"
+  }
+}
+```
+
+---
+
+## 🏆 Rewards (Auth Required)
+
+### Get Reward Certificate
+
+```javascript
+// GET /rewards/:id/certificate
+const response = await apiCall('/rewards/redemption-uuid/certificate');
+
+// Response (if certificate exists)
+{
+  "success": true,
+  "data": {
+    "certificate_url": "https://cloudinary.com/...",
+    "download_url": "https://cloudinary.com/..."
+  }
+}
+
+// Response (if certificate needs to be generated)
+{
+  "success": true,
+  "data": {
+    "certificate_data": {
+      "winner_name": "John Doe",
+      "phone_number": "9876543210",
+      "coupon_code": "ABC123XYZ456",
+      "prize_name": "Cashback ₹100",
+      "prize_value": 100,
+      "prize_type": "CASHBACK",
+      "rank": 1,
+      "won_date": "2026-01-10T12:00:00.000Z",
+      "status": "PENDING_VERIFICATION"
+    },
+    "certificate_url": null
+  }
+}
 ```
 
 ---
@@ -745,6 +880,24 @@ const response = await apiCall('/notifications/read-all', {
 });
 ```
 
+### 4. Delete Notification
+
+```javascript
+// DELETE /notifications/:id
+const response = await apiCall('/notifications/notification-uuid', {
+  method: 'DELETE'
+});
+```
+
+### 5. Delete All Notifications
+
+```javascript
+// DELETE /notifications
+const response = await apiCall('/notifications', {
+  method: 'DELETE'
+});
+```
+
 ---
 
 ## 🔍 Search
@@ -787,6 +940,7 @@ const response = await apiCall('/config');
 
 ```javascript
 // GET /config/banners
+// Also available at: /banners (alias)
 const response = await apiCall('/config/banners');
 
 // Response
@@ -796,10 +950,12 @@ const response = await apiCall('/config/banners');
     {
       "id": "uuid",
       "title": "Summer Sale",
+      "title_hi": "गर्मी की बिक्री",
       "image_url": "https://...",
       "link": "/products",
       "display_order": 1,
-      "is_active": true
+      "is_active": true,
+      "created_at": "2026-01-10T12:00:00.000Z"
     }
   ]
 }
@@ -812,33 +968,56 @@ const response = await apiCall('/config/banners');
 ### 1. Get FAQ
 
 ```javascript
-// GET /support/faq
-const response = await apiCall('/support/faq');
+// GET /support/faqs
+const response = await apiCall('/support/faqs');
 ```
 
 ### 2. Contact Support
 
 ```javascript
 // POST /support/contact
+// Note: Auth is optional - can be called without login
 const response = await apiCall('/support/contact', {
   method: 'POST',
   body: JSON.stringify({
     name: "John Doe",
-    phone: "9876543210",
+    mobile: "9876543210",
     email: "john@example.com",  // optional
     subject: "Product Inquiry",
     message: "I need help with..."
   })
 });
+
+// Response
+{
+  "success": true,
+  "data": {
+    "ticket_id": "TKT-20260111-001",
+    "message": "Your message has been received. We'll get back to you soon."
+  }
+}
 ```
 
 ### 3. Get Page Content
 
 ```javascript
-// GET /pages/:slug (terms, privacy, about)
-const terms = await apiCall('/pages/terms');
-const privacy = await apiCall('/pages/privacy');
-const about = await apiCall('/pages/about');
+// GET /support/:slug (terms, privacy-policy, about)
+const terms = await apiCall('/support/terms');
+const privacy = await apiCall('/support/privacy-policy');
+const about = await apiCall('/support/about');
+
+// Response
+{
+  "success": true,
+  "data": {
+    "slug": "terms",
+    "title": "Terms and Conditions",
+    "title_hi": "नियम और शर्तें",
+    "content": "Page content here...",
+    "content_hi": "पृष्ठ सामग्री यहाँ...",
+    "updated_at": "2026-01-10T12:00:00.000Z"
+  }
+}
 ```
 
 ---
@@ -896,6 +1075,28 @@ const response = await fetch(`${API_URL}/admin/auth/login`, {
 
 // Save admin token
 localStorage.setItem('adminToken', response.data.token);
+localStorage.setItem('adminRefreshToken', response.data.refresh_token);
+```
+
+### Admin Refresh Token
+
+```javascript
+// POST /admin/auth/refresh
+const response = await adminApiCall('/admin/auth/refresh', {
+  method: 'POST',
+  body: JSON.stringify({
+    refresh_token: localStorage.getItem('adminRefreshToken')
+  })
+});
+
+// Response
+{
+  "success": true,
+  "data": {
+    "token": "new-access-token",
+    "refresh_token": "new-refresh-token"
+  }
+}
 ```
 
 ### Admin Credentials
@@ -1060,6 +1261,165 @@ const response = await adminApiCall('/admin/users?page=1&limit=10');
 const response = await adminApiCall('/admin/users/user-uuid');
 ```
 
+### 3. Export Users
+
+```javascript
+// GET /admin/users/export
+const response = await adminApiCall('/admin/users/export');
+
+// Response (CSV file download)
+// Returns CSV file with all user data
+```
+
+### 4. Update User Status
+
+```javascript
+// PUT /admin/users/:id/status
+const response = await adminApiCall('/admin/users/user-uuid/status', {
+  method: 'PUT',
+  body: JSON.stringify({
+    is_active: false  // true or false
+  })
+});
+```
+
+---
+
+## Admin Campaigns
+
+### 1. List Campaigns
+
+```javascript
+// GET /admin/campaigns?page=1&limit=10&is_active=true
+const response = await adminApiCall('/admin/campaigns?page=1&limit=10');
+
+// Response
+{
+  "success": true,
+  "data": {
+    "campaigns": [
+      {
+        "id": "uuid",
+        "name": "Summer Sale Campaign",
+        "name_hi": "गर्मी की बिक्री अभियान",
+        "description": "Campaign description",
+        "start_date": "2026-01-01T00:00:00.000Z",
+        "end_date": "2026-12-31T23:59:59.000Z",
+        "is_active": true,
+        "distribution_type": "RANDOM",
+        "total_qr_codes": 1000,
+        "coupon_count": 500,
+        "tiers": [
+          {
+            "id": "tier-uuid",
+            "tier_name": "Gold Tier",
+            "reward_name": "₹500 Cashback",
+            "reward_name_hi": "₹500 कैशबैक",
+            "reward_type": "CASHBACK",
+            "reward_value": 500,
+            "probability": 0.1,
+            "priority": 1,
+            "max_winners": 5,
+            "current_winners": 2
+          }
+        ],
+        "created_at": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": { ... }
+  }
+}
+```
+
+### 2. Get Campaign by ID
+
+```javascript
+// GET /admin/campaigns/:id
+const response = await adminApiCall('/admin/campaigns/campaign-uuid');
+```
+
+### 3. Create Campaign
+
+```javascript
+// POST /admin/campaigns
+const response = await adminApiCall('/admin/campaigns', {
+  method: 'POST',
+  body: JSON.stringify({
+    name: "Summer Sale Campaign",
+    name_hi: "गर्मी की बिक्री अभियान",
+    description: "Campaign description",
+    start_date: "2026-01-01",  // ISO date or YYYY-MM-DD
+    end_date: "2026-12-31",
+    distribution_type: "RANDOM",  // "RANDOM" or "SEQUENTIAL"
+    is_active: true,
+    tiers: [
+      {
+        tier_name: "Gold Tier",
+        reward_name: "₹500 Cashback",
+        reward_name_hi: "₹500 कैशबैक",
+        reward_type: "CASHBACK",  // "CASHBACK", "DISCOUNT", "GIFT", "POINTS"
+        reward_value: 500,
+        probability: 0.1,  // 10% chance (0-1)
+        priority: 1,
+        max_winners: 5  // Optional
+      },
+      {
+        tier_name: "Silver Tier",
+        reward_name: "₹100 Discount",
+        reward_name_hi: "₹100 छूट",
+        reward_type: "DISCOUNT",
+        reward_value: 100,
+        probability: 0.9,  // 90% chance
+        priority: 2,
+        max_winners: 50
+      }
+    ]
+  })
+});
+
+// Response
+{
+  "success": true,
+  "message": "Campaign created successfully",
+  "data": {
+    "id": "campaign-uuid",
+    "name": "Summer Sale Campaign",
+    "tiers": [...],
+    "created_at": "2026-01-11T12:00:00.000Z"
+  }
+}
+```
+
+**Important Notes:**
+- At least one tier is required
+- Total probability of all tiers should not exceed 1.0
+- End date must be after start date
+- Reward types: `CASHBACK`, `DISCOUNT`, `GIFT`, `POINTS`
+- Distribution types: `RANDOM` (default) or `SEQUENTIAL`
+
+### 4. Update Campaign
+
+```javascript
+// PUT /admin/campaigns/:id
+const response = await adminApiCall('/admin/campaigns/campaign-uuid', {
+  method: 'PUT',
+  body: JSON.stringify({
+    name: "Updated Campaign Name",
+    is_active: false
+  })
+});
+```
+
+### 5. Delete Campaign
+
+```javascript
+// DELETE /admin/campaigns/:id
+// Note: Cannot delete if campaign has coupons. Delete coupons first.
+const response = await adminApiCall('/admin/campaigns/campaign-uuid', {
+  method: 'DELETE'
+});
+```
+
 ---
 
 ## Admin Coupons
@@ -1075,17 +1435,43 @@ const response = await adminApiCall('/admin/coupons?page=1&limit=10');
 
 ```javascript
 // POST /admin/coupons/generate
+// Note: Coupons are generated for a Campaign. Campaign must have Tiers defined with rewards.
+// First create a Campaign with Tiers, then generate coupons for that campaign.
 const response = await adminApiCall('/admin/coupons/generate', {
   method: 'POST',
   body: JSON.stringify({
-    product_id: "product-uuid",
-    batch_name: "Batch 2026-01",
-    quantity: 100,
-    reward_type: "CASHBACK",
-    reward_amount: 50,
-    expiry_date: "2026-12-31"
+    campaign_id: "campaign-uuid",  // REQUIRED - Campaign must exist with tiers
+    count: 100,  // Number of coupons to generate (1-10000)
+    product_id: "product-uuid",  // Optional - Link product to coupons
+    prefix: "AGRI",  // Optional - Prefix for coupon codes
+    expiry_date: "2026-12-31"  // Optional - ISO date string
   })
 });
+
+// Response
+{
+  "success": true,
+  "message": "100 QR codes generated successfully for campaign",
+  "data": {
+    "generated_count": 100,
+    "batch_id": "BATCH-20260111-001",
+    "campaign_id": "campaign-uuid"
+  }
+}
+```
+
+**Important Notes:**
+- `campaign_id` is **REQUIRED** - You must create a Campaign first with reward Tiers
+- `count` (not `quantity`) - Number of coupons to generate
+- `batch_name` is auto-generated by backend
+- `reward_type` and `reward_amount` belong to Campaign Tiers, not coupon generation
+- Campaign Tiers define the rewards users can win when scanning coupons
+
+### 3. Get Coupon Details
+
+```javascript
+// GET /admin/coupons/:id
+const response = await adminApiCall('/admin/coupons/coupon-uuid');
 ```
 
 ---
@@ -1124,11 +1510,27 @@ const response = await adminApiCall('/admin/distributors', {
 
 ```javascript
 // PUT /admin/distributors/:id
-const response = await adminApiCall('/admin/distributors/distributor-uuid', {
+// Note: Can upload signature and stamp files using FormData
+const formData = new FormData();
+formData.append('name', 'Updated Store Name');
+formData.append('signature', signatureFile); // optional
+formData.append('stamp', stampFile); // optional
+
+const response = await fetch(`${API_URL}/admin/distributors/distributor-uuid`, {
   method: 'PUT',
-  body: JSON.stringify({
-    name: "Updated Store Name"
-  })
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+  },
+  body: formData
+});
+```
+
+### 4. Delete Distributor
+
+```javascript
+// DELETE /admin/distributors/:id
+const response = await adminApiCall('/admin/distributors/distributor-uuid', {
+  method: 'DELETE'
 });
 ```
 
@@ -1161,11 +1563,151 @@ const response = await adminApiCall('/admin/settings', {
 
 ## Admin Reports
 
-### Get Reports
+### Get Report Data
 
 ```javascript
-// GET /admin/reports?type=sales&from=2026-01-01&to=2026-01-31
-const response = await adminApiCall('/admin/reports?type=sales&from=2026-01-01&to=2026-01-31');
+// GET /admin/reports/:type?from=2026-01-01&to=2026-01-31
+const response = await adminApiCall('/admin/reports/sales?from=2026-01-01&to=2026-01-31');
+
+// Available report types: sales, users, coupons, rewards, distributors
+```
+
+### Export Report
+
+```javascript
+// GET /admin/reports/:type/export?from=2026-01-01&to=2026-01-31
+const response = await adminApiCall('/admin/reports/sales/export?from=2026-01-01&to=2026-01-31');
+
+// Response (CSV/Excel file download)
+```
+
+---
+
+## Admin Banners
+
+### 1. List All Banners
+
+```javascript
+// GET /admin/banners
+const response = await adminApiCall('/admin/banners');
+```
+
+### 2. Create Banner
+
+```javascript
+// POST /admin/banners
+const formData = new FormData();
+formData.append('title', 'Summer Sale');
+formData.append('title_hi', 'गर्मी की बिक्री');
+formData.append('image', imageFile);
+formData.append('link', '/products');
+formData.append('display_order', '1');
+formData.append('is_active', 'true');
+
+const response = await fetch(`${API_URL}/admin/banners`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+  },
+  body: formData
+});
+```
+
+### 3. Update Banner
+
+```javascript
+// PUT /admin/banners/:id
+const response = await adminApiCall('/admin/banners/banner-uuid', {
+  method: 'PUT',
+  body: JSON.stringify({
+    title: "Updated Title",
+    is_active: false
+  })
+});
+```
+
+### 4. Delete Banner
+
+```javascript
+// DELETE /admin/banners/:id
+const response = await adminApiCall('/admin/banners/banner-uuid', {
+  method: 'DELETE'
+});
+```
+
+---
+
+## Admin CMS (Content Management)
+
+### FAQ Management
+
+#### 1. Get All FAQs
+
+```javascript
+// GET /admin/cms/faqs
+const response = await adminApiCall('/admin/cms/faqs');
+```
+
+#### 2. Create FAQ
+
+```javascript
+// POST /admin/cms/faqs
+const response = await adminApiCall('/admin/cms/faqs', {
+  method: 'POST',
+  body: JSON.stringify({
+    question: "How do I scan a coupon?",
+    question_hi: "मैं कूपन कैसे स्कैन करूं?",
+    answer: "Open the app and use the scan feature...",
+    answer_hi: "ऐप खोलें और स्कैन सुविधा का उपयोग करें...",
+    category: "GENERAL",
+    order: 1
+  })
+});
+```
+
+#### 3. Update FAQ
+
+```javascript
+// PUT /admin/cms/faqs/:id
+const response = await adminApiCall('/admin/cms/faqs/faq-uuid', {
+  method: 'PUT',
+  body: JSON.stringify({
+    question: "Updated question"
+  })
+});
+```
+
+#### 4. Delete FAQ
+
+```javascript
+// DELETE /admin/cms/faqs/:id
+const response = await adminApiCall('/admin/cms/faqs/faq-uuid', {
+  method: 'DELETE'
+});
+```
+
+### Page Management
+
+#### 1. Get All Pages
+
+```javascript
+// GET /admin/cms/pages
+const response = await adminApiCall('/admin/cms/pages');
+```
+
+#### 2. Update Page
+
+```javascript
+// PUT /admin/cms/pages/:slug
+const response = await adminApiCall('/admin/cms/pages/terms', {
+  method: 'PUT',
+  body: JSON.stringify({
+    title: "Terms and Conditions",
+    title_hi: "नियम और शर्तें",
+    content: "Updated content...",
+    content_hi: "अपडेट की गई सामग्री..."
+  })
+});
 ```
 
 ---
@@ -1244,10 +1786,15 @@ const response = await adminApiCall('/admin/reports?type=sales&from=2026-01-01&t
 | GET | `/distributors?pincode=` | Nearby distributors |
 | GET | `/search?q=` | Global search |
 | GET | `/config/banners` | App banners |
-| GET | `/support/faq` | FAQ |
+| GET | `/banners` | App banners (alias) |
+| GET | `/support/faqs` | FAQ |
+| GET | `/support/:slug` | Get page (terms, privacy-policy, about) |
+| GET | `/pages/:slug` | Get page (alias) |
 | POST | `/auth/dev-login` | Dev login |
 | POST | `/auth/send-otp` | Send OTP |
 | POST | `/auth/verify-otp` | Verify OTP |
+| GET | `/categories/:id` | Get category by ID |
+| GET | `/distributors/:id/coverage` | Get distributor coverage |
 
 ## User Endpoints (Auth Required)
 
@@ -1263,10 +1810,16 @@ const response = await adminApiCall('/admin/reports?type=sales&from=2026-01-01&t
 | GET | `/user/coupons` | Coupon history |
 | GET | `/user/rewards` | User rewards |
 | GET | `/products/recommended` | Recommended products |
-| POST | `/coupons/validate` | Validate coupon |
-| POST | `/coupons/scan` | Scan coupon |
+| PATCH | `/user/profile/avatar` | Update avatar |
+| POST | `/coupons/verify` | Verify coupon |
+| POST | `/coupons/redeem` | Redeem coupon |
+| POST | `/scan/redeem` | Scan QR code |
+| GET | `/rewards/:id/certificate` | Get reward certificate |
 | GET | `/notifications` | Notifications |
 | PUT | `/notifications/:id/read` | Mark read |
+| PUT | `/notifications/read-all` | Mark all read |
+| DELETE | `/notifications/:id` | Delete notification |
+| DELETE | `/notifications` | Delete all notifications |
 | POST | `/auth/logout` | Logout |
 | POST | `/auth/refresh-token` | Refresh token |
 
@@ -1275,19 +1828,44 @@ const response = await adminApiCall('/admin/reports?type=sales&from=2026-01-01&t
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/admin/auth/login` | Admin login |
+| POST | `/admin/auth/refresh` | Admin refresh token |
 | GET | `/admin/dashboard/stats` | Dashboard stats |
 | GET | `/admin/products` | List products |
 | POST | `/admin/products` | Create product |
+| GET | `/admin/products/:id` | Get product |
 | PUT | `/admin/products/:id` | Update product |
 | DELETE | `/admin/products/:id` | Delete product |
 | GET | `/admin/users` | List users |
+| GET | `/admin/users/:id` | Get user details |
+| GET | `/admin/users/export` | Export users |
+| PUT | `/admin/users/:id/status` | Update user status |
+| GET | `/admin/campaigns` | List campaigns |
+| GET | `/admin/campaigns/:id` | Get campaign |
+| POST | `/admin/campaigns` | Create campaign |
+| PUT | `/admin/campaigns/:id` | Update campaign |
+| DELETE | `/admin/campaigns/:id` | Delete campaign |
 | GET | `/admin/coupons` | List coupons |
+| GET | `/admin/coupons/:id` | Get coupon details |
 | POST | `/admin/coupons/generate` | Generate coupons |
 | GET | `/admin/distributors` | List distributors |
+| GET | `/admin/distributors/:id` | Get distributor |
 | POST | `/admin/distributors` | Create distributor |
+| PUT | `/admin/distributors/:id` | Update distributor |
+| DELETE | `/admin/distributors/:id` | Delete distributor |
 | GET | `/admin/settings` | Get settings |
 | PUT | `/admin/settings` | Update settings |
-| GET | `/admin/reports` | Get reports |
+| GET | `/admin/reports/:type` | Get report data |
+| GET | `/admin/reports/:type/export` | Export report |
+| GET | `/admin/banners` | List banners |
+| POST | `/admin/banners` | Create banner |
+| PUT | `/admin/banners/:id` | Update banner |
+| DELETE | `/admin/banners/:id` | Delete banner |
+| GET | `/admin/cms/faqs` | List FAQs |
+| POST | `/admin/cms/faqs` | Create FAQ |
+| PUT | `/admin/cms/faqs/:id` | Update FAQ |
+| DELETE | `/admin/cms/faqs/:id` | Delete FAQ |
+| GET | `/admin/cms/pages` | List pages |
+| PUT | `/admin/cms/pages/:slug` | Update page |
 
 ---
 
@@ -1304,5 +1882,6 @@ const response = await adminApiCall('/admin/reports?type=sales&from=2026-01-01&t
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** January 11, 2026
+**Document Version:** 2.1  
+**Last Updated:** January 11, 2026  
+**Status:** ✅ Complete - All endpoints verified and documented

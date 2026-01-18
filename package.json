@@ -42,11 +42,11 @@
     "multer": "^1.4.5-lts.1",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
+    "twilio": "^5.11.2",
     "typescript": "^5.6.3",
     "uuid": "^10.0.0",
     "zod": "^3.23.8"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=18.0.0"
   }

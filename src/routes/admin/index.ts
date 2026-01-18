@@ -9,6 +9,7 @@ import reportsRoutes from './reports.routes';
 import settingsRoutes from './settings.routes';
 import cmsRoutes from './cms.routes';
 import bannersRoutes from './banners.routes';
+import campaignsRoutes from './campaigns.routes';
 import { adminAuth } from '../../middleware/auth';
 
 import { adminRateLimiter } from '../../middleware/rateLimiter';
@@ -26,6 +27,7 @@ router.use('/dashboard', adminAuth, dashboardRoutes);
 router.use('/users', adminAuth, usersRoutes);
 router.use('/products', adminAuth, productsRoutes);
 router.use('/coupons', adminAuth, couponsRoutes);
+router.use('/campaigns', adminAuth, campaignsRoutes);
 router.use('/distributors', adminAuth, distributorsRoutes);
 router.use('/reports', adminAuth, reportsRoutes);
 router.use('/settings', adminAuth, settingsRoutes);

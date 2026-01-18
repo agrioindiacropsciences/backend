@@ -4,7 +4,7 @@ A comprehensive Node.js/Express backend API for the Agrio India agricultural pla
 
 ## 🌾 Features
 
-- **Authentication** - OTP-based authentication via Msg91
+- **Authentication** - OTP-based authentication via Twilio Verify
 - **User Management** - Profile, preferences, crop selections
 - **Product Catalog** - Categories, products, search
 - **Distributors** - Location-based dealer finder
@@ -22,7 +22,7 @@ A comprehensive Node.js/Express backend API for the Agrio India agricultural pla
 - **ORM**: Prisma
 - **Authentication**: JWT (RS256)
 - **Validation**: Zod
-- **SMS**: Msg91
+- **SMS**: Twilio Verify API
 
 ## 📁 Project Structure
 
@@ -269,9 +269,9 @@ Required environment variables for production:
 | `JWT_SECRET` | JWT signing secret (min 32 chars) |
 | `JWT_REFRESH_SECRET` | Refresh token secret |
 | `ADMIN_JWT_SECRET` | Admin JWT secret |
-| `MSG91_API_KEY` | Msg91 API key |
-| `MSG91_SENDER_ID` | Msg91 sender ID |
-| `MSG91_TEMPLATE_ID` | Msg91 template ID |
+| `TWILIO_ACCOUNT_SID` | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | Twilio Auth Token |
+| `TWILIO_VERIFY_SERVICE_SID` | Twilio Verify Service SID |
 
 ## 📝 Default Admin Credentials
 

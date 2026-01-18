@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/response';
 import { sendOtpSchema, verifyOtpSchema, refreshTokenSchema } from '../utils/validation';
-import { generateOtp, generateRequestId, getOtpExpiry, isOtpExpired, sendOtpViaSms } from '../utils/otp';
+import { generateRequestId, getOtpExpiry, sendOtpViaSms, verifyOtpWithTwilio } from '../utils/otp';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, getTokenExpiry } from '../utils/jwt';
 import { AuthenticatedRequest, ErrorCodes } from '../types';
 import { AppError } from '../middleware/errorHandler';
@@ -20,42 +20,43 @@ export const sendOtp = async (
   try {
     const { phone_number } = sendOtpSchema.parse(req.body);
 
-    // Generate OTP and request ID
-    const otp = generateOtp();
+    // Generate request ID for tracking
     const requestId = generateRequestId();
     const expiresAt = getOtpExpiry();
 
-    // Delete any existing OTPs for this phone number
+    // Delete any existing OTP verification records for this phone number
     await prisma.otpVerification.deleteMany({
       where: { phoneNumber: phone_number },
     });
 
-    // Create new OTP record
-    await prisma.otpVerification.create({
-      data: {
-        phoneNumber: phone_number,
-        otpCode: otp,
-        requestId,
-        expiresAt,
-      },
-    });
+    // Send OTP via Twilio Verify API
+    const smsResult = await sendOtpViaSms(phone_number);
 
-    // Send OTP via SMS
-    const smsResult = await sendOtpViaSms(phone_number, otp);
+    // Store verification record (even if Twilio fails, we track the attempt)
+    if (smsResult.verificationSid || isDevelopment || !process.env.TWILIO_VERIFY_SERVICE_SID) {
+      await prisma.otpVerification.create({
+        data: {
+          phoneNumber: phone_number,
+          otpCode: 'TWILIO', // Placeholder - Twilio manages the OTP
+          requestId,
+          expiresAt,
+          isVerified: false,
+        },
+      });
+    }
 
     // In production, log error if SMS fails but still allow OTP to be stored
     if (!smsResult.success) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error(`❌ Failed to send OTP via Msg91 to ${phone_number}:`, smsResult.message);
-        // Still return success - OTP is stored in DB and can be verified
-        // User might have received OTP via other means or can contact support
-      }
+      console.error(`❌ Failed to send OTP via Twilio to ${phone_number}:`, smsResult.message);
+      // Still return success - OTP request is tracked in DB
+      // User might need to verify phone number in Twilio console (trial accounts)
     }
 
     sendSuccess(res, {
       request_id: requestId,
-      expires_in: 300, // 5 minutes
-    }, smsResult.success ? 'OTP sent successfully' : 'OTP generated. Please check your phone.');
+      verification_sid: smsResult.verificationSid,
+      expires_in: 600, // 10 minutes (Twilio default)
+    }, smsResult.success ? 'OTP sent successfully' : 'OTP request initiated. Please check your phone.');
   } catch (error) {
     next(error);
   }
@@ -70,12 +71,14 @@ export const verifyOtp = async (
   try {
     const { phone_number, otp_code } = verifyOtpSchema.parse(req.body);
 
-    // DEV MODE or No MSG91: Allow bypass with ANY 4-digit OTP code
-    const msg91NotConfigured = !process.env.MSG91_API_KEY;
-    const isDevBypass = (isDevelopment || msg91NotConfigured) && otp_code.length === 4;
+    // Check if Twilio is configured
+    const twilioNotConfigured = !process.env.TWILIO_VERIFY_SERVICE_SID;
+    
+    // DEV MODE or No Twilio: Allow bypass with "123456" code
+    const isDevBypass = (isDevelopment || twilioNotConfigured) && otp_code === DEV_OTP_CODE;
 
     if (!isDevBypass) {
-      // Find OTP record
+      // Find OTP verification record (tracking that send-otp was called)
       const otpRecord = await prisma.otpVerification.findFirst({
         where: {
           phoneNumber: phone_number,
@@ -89,14 +92,20 @@ export const verifyOtp = async (
       }
 
       // Check expiry
-      if (isOtpExpired(otpRecord.expiresAt)) {
+      if (new Date() > otpRecord.expiresAt) {
         await prisma.otpVerification.delete({ where: { id: otpRecord.id } });
         throw new AppError('OTP has expired. Please request a new one.', ErrorCodes.OTP_EXPIRED, 400);
       }
 
-      // Verify OTP
-      if (otpRecord.otpCode !== otp_code) {
-        throw new AppError('Invalid OTP code.', ErrorCodes.OTP_INVALID, 400);
+      // Verify OTP with Twilio
+      const verificationResult = await verifyOtpWithTwilio(phone_number, otp_code);
+
+      if (!verificationResult.valid) {
+        throw new AppError(
+          verificationResult.message || 'Invalid OTP code.',
+          ErrorCodes.OTP_INVALID,
+          400
+        );
       }
 
       // Mark OTP as verified
