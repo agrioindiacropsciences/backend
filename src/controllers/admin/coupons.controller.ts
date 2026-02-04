@@ -69,7 +69,6 @@ export const listCoupons = async (
           used_at: c.usedAt,
           expiry_date: c.expiryDate,
           created_at: c.createdAt,
-          batch_number: c.batchNumber,
         };
       }),
       pagination: createPagination(total, page, limit),
