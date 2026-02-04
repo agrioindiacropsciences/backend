@@ -39,4 +39,10 @@ router.get('/coupons', userController.getCouponHistory);
 // GET /api/v1/user/rewards
 router.get('/rewards', userController.getRewards);
 
+// GET /api/v1/user/account/deletion-info - Account deletion information (for Play Store)
+router.get('/account/deletion-info', userController.getAccountDeletionInfo);
+
+// DELETE /api/v1/user/account - Delete user account (Google Play Store compliance)
+router.delete('/account', userController.deleteAccount);
+
 export default router;

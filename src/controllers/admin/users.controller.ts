@@ -73,13 +73,23 @@ export const listUsers = async (
       users: users.map(user => ({
         id: user.id,
         name: user.fullName,
+        full_name: user.fullName,
+        phone_number: user.phoneNumber,
         mobile: user.phoneNumber,
         email: user.email,
+        pin_code: user.pinCode,
+        pincode: user.pinCode,
+        full_address: user.fullAddress,
+        state: user.state,
+        district: user.district,
         location: user.district && user.state ? `${user.district}, ${user.state}` : null,
         crops: user.crops.map(c => c.crop.name),
         total_scans: user._count.redemptions,
         status: !user.isActive ? 'Suspended' : user.fullName ? 'Active' : 'Pending',
+        role: !user.isActive ? 'SUSPENDED' : user.fullName ? 'Active' : 'Pending',
+        is_active: user.isActive,
         joined_date: formatDate(user.createdAt),
+        created_at: user.createdAt,
       })),
       pagination: createPagination(total, page, limit),
     });
@@ -112,6 +122,9 @@ export const getUserDetails = async (
           orderBy: { scannedAt: 'desc' },
           take: 10,
         },
+        _count: {
+          select: { redemptions: true },
+        },
       },
     });
 
@@ -119,13 +132,19 @@ export const getUserDetails = async (
       return sendError(res, ErrorCodes.NOT_FOUND, 'User not found', 404);
     }
 
+    const claimedCount = await prisma.scanRedemption.count({
+      where: { userId: id, status: { in: ['CLAIMED', 'VERIFIED'] } },
+    });
+
     sendSuccess(res, {
       id: user.id,
       phone_number: user.phoneNumber,
+      name: user.fullName,
       full_name: user.fullName,
       email: user.email,
-      role: user.role,
+      role: user.isActive ? 'Active' : 'SUSPENDED',
       pin_code: user.pinCode,
+      pincode: user.pinCode,
       full_address: user.fullAddress,
       state: user.state,
       district: user.district,
@@ -133,6 +152,8 @@ export const getUserDetails = async (
       is_active: user.isActive,
       created_at: user.createdAt,
       last_login: user.lastLogin,
+      total_scans: user._count.redemptions,
+      total_rewards: claimedCount,
       crops: user.crops.map(c => ({
         id: c.crop.id,
         name: c.crop.name,
@@ -159,7 +180,7 @@ export const updateUserStatus = async (
 ): Promise<void | Response> => {
   try {
     const { id } = req.params;
-    const { status, reason } = req.body;
+    const { status, reason, is_active } = req.body;
 
     const user = await prisma.user.findUnique({ where: { id } });
 
@@ -167,7 +188,7 @@ export const updateUserStatus = async (
       return sendError(res, ErrorCodes.NOT_FOUND, 'User not found', 404);
     }
 
-    const isActive = status !== 'suspended';
+    const isActive = is_active !== undefined ? is_active : status !== 'suspended';
 
     await prisma.user.update({
       where: { id },

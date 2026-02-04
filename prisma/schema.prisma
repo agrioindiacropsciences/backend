@@ -109,6 +109,22 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+model FcmToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  deviceId  String?  @map("device_id")
+  platform  String?  // 'android' | 'ios' | 'web'
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("fcm_tokens")
+}
+
 // ============================================
 // USERS
 // ============================================
@@ -133,6 +149,7 @@ model User {
   preferences    UserPreference?
   crops          UserCrop[]
   refreshTokens  RefreshToken[]
+  fcmTokens      FcmToken[]
   couponsUsed    Coupon[]
   redemptions    ScanRedemption[]
   notifications  Notification[]
@@ -227,6 +244,7 @@ model Product {
   images             Json?    @default("[]")
   technicalDetails   Json?    @map("technical_details")
   isBestSeller       Boolean  @default(false) @map("is_best_seller")
+  bestSellerRank     Int?     @map("best_seller_rank")
   isActive           Boolean  @default(true) @map("is_active")
   salesCount         Int      @default(0) @map("sales_count")
   displayOrder       Int      @default(0) @map("display_order")
@@ -241,6 +259,7 @@ model Product {
   @@index([categoryId])
   @@index([slug])
   @@index([isBestSeller])
+  @@index([bestSellerRank])
   @@map("products")
 }
 

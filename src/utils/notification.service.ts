@@ -6,29 +6,52 @@ export class NotificationService {
      * Send notification to a specific FCM token
      */
     static async sendToDevice(token: string, title: string, body: string, imageUrl?: string, data?: any, userId?: string) {
+        // Convert all data values to strings (FCM requirement)
+        const dataPayload: Record<string, string> = {};
+        if (data) {
+            Object.keys(data).forEach(key => {
+                dataPayload[key] = String(data[key] || '');
+            });
+        }
+        if (imageUrl) dataPayload.imageUrl = String(imageUrl);
+
         const message = {
             notification: {
                 title,
                 body,
                 ...(imageUrl && { image: imageUrl }),
             },
-            data: data || {},
+            data: dataPayload,
             token: token,
             android: {
+                priority: 'high' as const,
                 notification: {
                     image: imageUrl,
-                    channelId: 'high_importance_channel'
+                    channelId: 'high_importance_channel',
+                    sound: 'default',
+                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
                 },
             },
             apns: {
+                headers: {
+                    'apns-priority': '10',
+                },
                 payload: {
                     aps: {
                         'mutable-content': 1,
+                        sound: 'default',
+                        badge: 1,
                         category: 'IMAGE_RCV',
                     },
                 },
                 fcm_options: {
                     image: imageUrl,
+                },
+            },
+            webpush: {
+                notification: {
+                    icon: imageUrl || '/assets/logo/logo.png',
+                    badge: '/assets/logo/logo.png',
                 },
             },
         };
@@ -62,6 +85,15 @@ export class NotificationService {
      * Send notification to a topic (e.g., 'all_users')
      */
     static async sendToTopic(topic: string, title: string, body: string, imageUrl?: string, data?: any) {
+        // Convert all data values to strings (FCM requirement)
+        const dataPayload: Record<string, string> = {};
+        if (data) {
+            Object.keys(data).forEach(key => {
+                dataPayload[key] = String(data[key] || '');
+            });
+        }
+        if (imageUrl) dataPayload.imageUrl = String(imageUrl);
+
         const message = {
             notification: {
                 title,
@@ -69,22 +101,36 @@ export class NotificationService {
                 ...(imageUrl && { image: imageUrl }),
             },
             android: {
+                priority: 'high' as const,
                 notification: {
                     image: imageUrl,
-                    channelId: 'high_importance_channel'
+                    channelId: 'high_importance_channel',
+                    sound: 'default',
+                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
                 },
             },
             apns: {
+                headers: {
+                    'apns-priority': '10',
+                },
                 payload: {
                     aps: {
                         'mutable-content': 1,
+                        sound: 'default',
+                        badge: 1,
                     },
                 },
                 fcm_options: {
                     image: imageUrl,
                 },
             },
-            data: data || {},
+            webpush: {
+                notification: {
+                    icon: imageUrl || '/assets/logo/logo.png',
+                    badge: '/assets/logo/logo.png',
+                },
+            },
+            data: dataPayload,
             topic: topic,
         };
 
@@ -105,7 +151,9 @@ export class NotificationService {
                     userId: user.id,
                     type: this.validateType(data?.type),
                     title,
+                    titleHi: data?.titleHi || null,
                     message: body,
+                    messageHi: data?.messageHi || null,
                     data: { ...(data || {}), imageUrl },
                     isRead: false
                 }));
@@ -135,8 +183,35 @@ export class NotificationService {
         });
     }
 
+    /**
+     * Send notification to a specific user (by userId)
+     */
+    static async sendToUser(userId: string, title: string, body: string, imageUrl?: string, data?: any) {
+        const fcmTokens = await prisma.fcmToken.findMany({
+            where: {
+                userId,
+                isActive: true,
+            },
+            select: { token: true },
+        });
+
+        if (fcmTokens.length === 0) {
+            console.log(`No active FCM tokens found for user ${userId}`);
+            return { sent: 0, total: 0 };
+        }
+
+        const results = await Promise.allSettled(
+            fcmTokens.map(token => this.sendToDevice(token.token, title, body, imageUrl, data, userId))
+        );
+
+        const successCount = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`Sent notification to ${successCount}/${fcmTokens.length} devices for user ${userId}`);
+
+        return { sent: successCount, total: fcmTokens.length };
+    }
+
     private static validateType(type?: string): any {
-        const validTypes = ['REWARD', 'PROMO', 'ORDER', 'SYSTEM'];
+        const validTypes = ['REWARD', 'PROMO', 'ORDER', 'SYSTEM', 'URL'];
         if (type && validTypes.includes(type)) {
             return type;
         }

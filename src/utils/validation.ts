@@ -54,6 +54,13 @@ export const updateLanguageSchema = z.object({
   language: z.enum(['en', 'hi']),
 });
 
+// FCM Token Schema
+export const registerFcmTokenSchema = z.object({
+  fcm_token: z.string().min(1, 'FCM token is required'),
+  device_id: z.string().optional(),
+  platform: z.enum(['android', 'ios', 'web']).optional(),
+});
+
 // Crop Schemas
 export const syncCropsSchema = z.object({
   crop_ids: z.array(z.string()).min(1, 'At least one crop must be selected'),
@@ -95,27 +102,41 @@ export const adminLoginSchema = z.object({
   password: z.string().min(6),
 });
 
+// Parses FormData body (strings) into proper types for product create/update
+const parseJsonArray = (val: unknown): unknown => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val || '[]');
+    } catch {
+      return [];
+    }
+  }
+  return val;
+};
+
 export const adminCreateProductSchema = z.object({
   name: z.string().min(2).max(100),
-  name_hi: z.string().min(2).max(100),
+  name_hi: z.string().max(100).optional().default(''),
   category_id: z.string().min(1),
   description: z.string().optional(),
   description_hi: z.string().optional(),
   composition: z.string().optional(),
   dosage: z.string().optional(),
   application_method: z.string().optional(),
-  target_pests: z.array(z.string()).optional(),
-  suitable_crops: z.array(z.string()).optional(),
-  pack_sizes: z.array(z.object({
+  target_pests: z.preprocess(parseJsonArray, z.array(z.string()).optional()),
+  suitable_crops: z.preprocess(parseJsonArray, z.array(z.string()).optional()),
+  pack_sizes: z.preprocess(parseJsonArray, z.array(z.object({
     size: z.string(),
     sku: z.string(),
-    mrp: z.number().optional(),
-    selling_price: z.number().optional(),
-  })).optional(),
-  safety_precautions: z.array(z.string()).optional(),
+    mrp: z.coerce.number().optional(),
+    selling_price: z.coerce.number().optional(),
+  })).optional()),
+  safety_precautions: z.preprocess(parseJsonArray, z.array(z.string()).optional()),
   images: z.array(z.string()).optional(),
-  is_best_seller: z.boolean().default(false),
-  is_active: z.boolean().default(true),
+  is_best_seller: z.preprocess(v => v === 'true' || v === true, z.boolean()).default(false),
+  best_seller_rank: z.preprocess(v => (v === '' || v === undefined || v === null) ? null : parseInt(String(v)) || null, z.number().int().min(1).optional().nullable()),
+  is_active: z.preprocess(v => v === 'false' || v === false ? false : true, z.boolean()).default(true),
 });
 
 export const generateCouponsSchema = z.object({
@@ -144,6 +165,10 @@ export const createCampaignSchema = z.object({
     probability: z.number().min(0).max(1),
     priority: z.number().int().default(0),
     max_winners: z.number().int().positive().optional(),
+    image_url: z.string().optional(),
+  }).refine((tier) => tier.reward_type !== 'GIFT' || (tier.image_url && tier.image_url.trim().length > 0), {
+    message: 'Gift image URL is required when reward type is GIFT',
+    path: ['image_url'],
   })).min(1, 'At least one tier is required'),
 });
 

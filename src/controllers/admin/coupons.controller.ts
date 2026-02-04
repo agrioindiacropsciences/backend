@@ -40,8 +40,8 @@ export const listCoupons = async (
       prisma.coupon.findMany({
         where,
         include: {
-          product: { select: { name: true } },
-          campaign: { select: { name: true } },
+          product: { select: { id: true, name: true } },
+          campaign: { include: { tiers: { take: 1, orderBy: { priority: 'asc' } } } },
           user: { select: { fullName: true, phoneNumber: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -52,21 +52,26 @@ export const listCoupons = async (
     ]);
 
     sendSuccess(res, {
-      coupons: coupons.map(c => ({
-        id: c.id,
-        code: c.code,
-        product: c.product?.name,
-        campaign: c.campaign?.name,
-        batch_number: c.batchNumber,
-        status: c.status,
-        used_by: c.user ? {
-          name: c.user.fullName,
-          phone: c.user.phoneNumber,
-        } : null,
-        used_at: c.usedAt,
-        expiry_date: c.expiryDate,
-        created_at: c.createdAt,
-      })),
+      coupons: coupons.map(c => {
+        const tier = (c.campaign as any)?.tiers?.[0];
+        return {
+          id: c.id,
+          code: c.code,
+          product: c.product ? { id: c.product.id, name: c.product.name } : null,
+          campaign: c.campaign?.name,
+          batch_number: c.batchNumber,
+          status: c.status,
+          is_used: c.status === 'USED',
+          reward_type: tier?.rewardType || null,
+          reward_value: tier?.rewardValue ? Number(tier.rewardValue) : null,
+          used_by: c.user ? { name: c.user.fullName, phone: c.user.phoneNumber } : null,
+          redeemed_by: c.user ? { name: c.user.fullName, phone: c.user.phoneNumber } : null,
+          used_at: c.usedAt,
+          expiry_date: c.expiryDate,
+          created_at: c.createdAt,
+          batch_number: c.batchNumber,
+        };
+      }),
       pagination: createPagination(total, page, limit),
     });
   } catch (error) {
@@ -102,13 +107,67 @@ export const generateCoupons = async (
     // Wait, let's look at the plan again. I need to replace the WHOLE file content or use multi_replace.
     // Using multi_replace is safer.
 
-    const result = await import('../../services/QrService').then(m => m.default.generateBatch(data.campaign_id!, data.count, batchId));
+    const expiryDate = data.expiry_date ? new Date(data.expiry_date) : undefined;
+    const result = await import('../../services/QrService').then(m =>
+      m.default.generateBatch(data.campaign_id!, data.count, batchId, data.product_id, expiryDate)
+    );
 
     sendSuccess(res, {
       generated_count: result.count,
       batch_id: batchId,
       campaign_id: data.campaign_id
     }, `${result.count} QR codes generated successfully for campaign`, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/v1/admin/coupons/:id
+export const deleteCoupon = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { id } = req.params;
+
+    const coupon = await prisma.coupon.findUnique({ where: { id } });
+    if (!coupon) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'Coupon not found', 404);
+    }
+
+    if (coupon.status === 'USED') {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Cannot delete a used coupon', 400);
+    }
+
+    await prisma.coupon.delete({ where: { id } });
+    sendSuccess(res, undefined, 'Coupon deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/v1/admin/coupons/delete-bulk
+export const deleteCouponsBulk = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Coupon IDs are required', 400);
+    }
+
+    const result = await prisma.coupon.deleteMany({
+      where: {
+        id: { in: ids },
+        status: 'UNUSED',
+      },
+    });
+
+    sendSuccess(res, { deleted_count: result.count }, `${result.count} coupon(s) deleted successfully`);
   } catch (error) {
     next(error);
   }

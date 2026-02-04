@@ -177,6 +177,7 @@ export const createCampaign = async (
             probability: tier.probability,
             priority: tier.priority,
             maxWinners: tier.max_winners,
+            imageUrl: (tier as any).image_url || null,
           })),
         },
       },

@@ -45,7 +45,12 @@ export const listDistributors = async (
         case 'inactive':
           where.isActive = false;
           break;
+        default:
+          where.isActive = true;
+          break;
       }
+    } else {
+      where.isActive = true;
     }
 
     if (state) {
@@ -72,8 +77,16 @@ export const listDistributors = async (
         id: d.id,
         name: d.name,
         business_name: d.businessName,
+        owner_name: d.businessName,
         phone: d.phone,
-        location: `${d.addressCity}, ${d.addressState}`,
+        email: d.email,
+        address: [d.addressStreet, d.addressArea].filter(Boolean).join(', ') || null,
+        city: d.addressCity,
+        state: d.addressState,
+        pincode: d.addressPincode,
+        location: `${d.addressCity || ''}, ${d.addressState || ''}`.replace(/^,\s*|,\s*$/g, '').replace(/,\s*$/, '') || null,
+        latitude: d.locationLat ? Number(d.locationLat) : null,
+        longitude: d.locationLng ? Number(d.locationLng) : null,
         coverage_count: d._count.coverage,
         products_count: d._count.products,
         is_verified: d.isVerified,
@@ -118,22 +131,22 @@ export const createDistributor = async (
     const distributor = await prisma.distributor.create({
       data: {
         name: data.name,
-        businessName: data.business_name,
+        businessName: data.business_name || data.owner_name || data.name,
         phone: data.phone,
         whatsapp: data.whatsapp,
         email: data.email,
-        addressStreet: data.address?.street,
+        addressStreet: data.address?.street || data.address,
         addressArea: data.address?.area,
-        addressCity: data.address?.city,
-        addressPincode: data.address?.pincode,
-        addressState: data.address?.state,
-        locationLat: data.location?.lat,
-        locationLng: data.location?.lng,
+        addressCity: data.address?.city || data.city,
+        addressPincode: data.address?.pincode || data.pincode,
+        addressState: data.address?.state || data.state,
+        locationLat: data.location?.lat ?? data.latitude,
+        locationLng: data.location?.lng ?? data.longitude,
         openingHours: data.opening_hours,
         signatureImageUrl,
         stampImageUrl,
         isVerified: data.is_verified || false,
-        isActive: data.is_active || true,
+        isActive: data.is_active !== false,
       },
     });
 
@@ -149,7 +162,20 @@ export const createDistributor = async (
 
     sendSuccess(res, {
       id: distributor.id,
+      name: distributor.name,
       business_name: distributor.businessName,
+      owner_name: distributor.businessName,
+      phone: distributor.phone,
+      email: distributor.email,
+      address: [distributor.addressStreet, distributor.addressArea].filter(Boolean).join(', ') || null,
+      city: distributor.addressCity,
+      state: distributor.addressState,
+      pincode: distributor.addressPincode,
+      latitude: distributor.locationLat ? Number(distributor.locationLat) : null,
+      longitude: distributor.locationLng ? Number(distributor.locationLng) : null,
+      is_active: distributor.isActive,
+      is_verified: distributor.isVerified,
+      created_at: distributor.createdAt,
     }, 'Distributor created successfully', 201);
   } catch (error) {
     next(error);
@@ -214,20 +240,30 @@ export const updateDistributor = async (
 
     if (data.name !== undefined) updateData.name = data.name;
     if (data.business_name !== undefined) updateData.businessName = data.business_name;
+    if (data.owner_name !== undefined) updateData.businessName = data.owner_name;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.whatsapp !== undefined) updateData.whatsapp = data.whatsapp;
     if (data.email !== undefined) updateData.email = data.email;
     if (data.address) {
-      if (data.address.street !== undefined) updateData.addressStreet = data.address.street;
-      if (data.address.area !== undefined) updateData.addressArea = data.address.area;
-      if (data.address.city !== undefined) updateData.addressCity = data.address.city;
-      if (data.address.pincode !== undefined) updateData.addressPincode = data.address.pincode;
-      if (data.address.state !== undefined) updateData.addressState = data.address.state;
+      if (typeof data.address === 'string') updateData.addressStreet = data.address;
+      else {
+        if (data.address.street !== undefined) updateData.addressStreet = data.address.street;
+        if (data.address.area !== undefined) updateData.addressArea = data.address.area;
+        if (data.address.city !== undefined) updateData.addressCity = data.address.city;
+        if (data.address.pincode !== undefined) updateData.addressPincode = data.address.pincode;
+        if (data.address.state !== undefined) updateData.addressState = data.address.state;
+      }
     }
+    if (data.city !== undefined) updateData.addressCity = data.city;
+    if (data.state !== undefined) updateData.addressState = data.state;
+    if (data.pincode !== undefined) updateData.addressPincode = data.pincode;
+    if (data.addressStreet !== undefined) updateData.addressStreet = data.addressStreet;
     if (data.location) {
       if (data.location.lat !== undefined) updateData.locationLat = data.location.lat;
       if (data.location.lng !== undefined) updateData.locationLng = data.location.lng;
     }
+    if (data.latitude !== undefined) updateData.locationLat = data.latitude;
+    if (data.longitude !== undefined) updateData.locationLng = data.longitude;
     if (data.opening_hours !== undefined) updateData.openingHours = data.opening_hours;
     if (data.is_verified !== undefined) updateData.isVerified = data.is_verified;
     if (data.is_active !== undefined) updateData.isActive = data.is_active;

@@ -16,7 +16,7 @@ export const getDistributors = async (
     const pincode = req.query.pincode as string;
     const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
     const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
-    const radiusKm = req.query.radius ? parseFloat(req.query.radius as string) : 50; // Default 50km radius for discovery
+    const radiusKm = req.query.radius ? parseFloat(req.query.radius as string) : 100; // Default 100km radius for location-based search
 
     const { page, limit, skip } = parsePagination(
       req.query.page as string,
@@ -82,6 +82,7 @@ export const getDistributors = async (
         id: d.id,
         name: d.name,
         business_name: d.businessName,
+        owner_name: d.businessName,
         phone: d.phone,
         whatsapp: d.whatsapp,
         email: d.email,
@@ -92,10 +93,15 @@ export const getDistributors = async (
           pincode: d.addressPincode,
           state: d.addressState,
         },
+        city: d.addressCity,
+        state: d.addressState,
+        pincode: d.addressPincode,
         location: d.locationLat && d.locationLng ? {
           lat: Number(d.locationLat),
           lng: Number(d.locationLng),
         } : null,
+        latitude: d.locationLat ? Number(d.locationLat) : null,
+        longitude: d.locationLng ? Number(d.locationLng) : null,
         distance_km: distanceKm,
         opening_hours: d.openingHours,
         signature_image_url: d.signatureImageUrl,

@@ -10,8 +10,14 @@ router.get('/', couponsController.listCoupons);
 // POST /api/v1/admin/coupons/generate
 router.post('/generate', requireRole('SUPER_ADMIN', 'ADMIN'), couponsController.generateCoupons);
 
+// POST /api/v1/admin/coupons/delete-bulk (must be before /:id)
+router.post('/delete-bulk', requireRole('SUPER_ADMIN', 'ADMIN'), couponsController.deleteCouponsBulk);
+
 // GET /api/v1/admin/coupons/:id
 router.get('/:id', couponsController.getCouponDetails);
+
+// DELETE /api/v1/admin/coupons/:id
+router.delete('/:id', requireRole('SUPER_ADMIN', 'ADMIN'), couponsController.deleteCoupon);
 
 export default router;
 

@@ -149,6 +149,14 @@ export const verifyOtp = async (
         },
       });
     } else {
+      // Block suspended users from logging in
+      if (!user.isActive) {
+        throw new AppError(
+          'Your account is suspended. Please contact customer care.',
+          ErrorCodes.ACCOUNT_SUSPENDED,
+          403
+        );
+      }
       // Update last login
       await prisma.user.update({
         where: { id: user.id },
@@ -240,7 +248,11 @@ export const refreshToken = async (
     }
 
     if (!storedToken.user.isActive) {
-      throw new AppError('User account is inactive', ErrorCodes.UNAUTHORIZED, 401);
+      throw new AppError(
+        'Your account is suspended. Please contact customer care.',
+        ErrorCodes.ACCOUNT_SUSPENDED,
+        403
+      );
     }
 
     // Generate new tokens
@@ -342,6 +354,15 @@ export const devLogin = async (
         },
       });
     } else {
+      // Block suspended users from dev login
+      if (!user.isActive) {
+        return sendError(
+          res,
+          ErrorCodes.ACCOUNT_SUSPENDED,
+          'Your account is suspended. Please contact customer care.',
+          403
+        );
+      }
       // Update last login
       await prisma.user.update({
         where: { id: user.id },

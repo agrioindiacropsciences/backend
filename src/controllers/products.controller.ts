@@ -104,6 +104,7 @@ export const getAllProducts = async (
       images: product.images,
       image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       is_best_seller: product.isBestSeller,
+      best_seller_rank: product.bestSellerRank,
       is_active: product.isActive,
       sales_count: product.salesCount,
       display_order: product.displayOrder,
@@ -135,10 +136,13 @@ export const getBestSellers = async (
         },
         packSizes: {
           where: { isActive: true },
-          select: { size: true, sku: true },
+          select: { size: true, sku: true, mrp: true, sellingPrice: true },
         },
       },
-      orderBy: { salesCount: 'desc' },
+      orderBy: [
+        { bestSellerRank: { sort: 'asc', nulls: 'last' } },
+        { salesCount: 'desc' },
+      ],
       take: limit,
     });
 
@@ -154,7 +158,12 @@ export const getBestSellers = async (
       },
       images: product.images,
       image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
-      pack_sizes: product.packSizes,
+      pack_sizes: product.packSizes.map(ps => ({
+        size: ps.size,
+        sku: ps.sku,
+        mrp: ps.mrp ? Number(ps.mrp) : null,
+        selling_price: ps.sellingPrice ? Number(ps.sellingPrice) : null,
+      })),
       is_best_seller: product.isBestSeller,
     })));
   } catch (error) {
@@ -205,6 +214,7 @@ export const getNewArrivals = async (
         selling_price: ps.sellingPrice ? Number(ps.sellingPrice) : null,
       })),
       is_best_seller: product.isBestSeller,
+      best_seller_rank: product.bestSellerRank,
       created_at: product.createdAt,
     })));
   } catch (error) {
@@ -256,6 +266,7 @@ export const getFeaturedProducts = async (
         selling_price: ps.sellingPrice ? Number(ps.sellingPrice) : null,
       })),
       is_best_seller: product.isBestSeller,
+      best_seller_rank: product.bestSellerRank,
       sales_count: product.salesCount,
     })));
   } catch (error) {
@@ -321,6 +332,7 @@ export const searchProducts = async (
         selling_price: ps.sellingPrice ? Number(ps.sellingPrice) : null,
       })),
       is_best_seller: product.isBestSeller,
+      best_seller_rank: product.bestSellerRank,
     })));
   } catch (error) {
     next(error);
@@ -456,6 +468,7 @@ export const getProductBySlug = async (
       image_url: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] as string : null,
       technical_details: product.technicalDetails,
       is_best_seller: product.isBestSeller,
+      best_seller_rank: product.bestSellerRank,
       related_products: relatedProducts.map(p => ({
         id: p.id,
         name: p.name,

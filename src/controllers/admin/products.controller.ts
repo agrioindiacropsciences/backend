@@ -8,6 +8,30 @@ import { Prisma } from '@prisma/client';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 import { NotificationService } from '../../utils/notification.service';
 
+/**
+ * When assigning best_seller_rank to a product, shift other products with same or higher rank
+ * to ensure unique ranks (only one product per rank).
+ */
+async function shiftBestSellerRanks(newRank: number, excludeProductId?: string): Promise<void> {
+  const toShift = await prisma.product.findMany({
+    where: {
+      isBestSeller: true,
+      bestSellerRank: { gte: newRank },
+      ...(excludeProductId && { id: { not: excludeProductId } }),
+    },
+    orderBy: { bestSellerRank: 'desc' },
+    select: { id: true, bestSellerRank: true },
+  });
+
+  for (const p of toShift) {
+    const currentRank = p.bestSellerRank as number;
+    await prisma.product.update({
+      where: { id: p.id },
+      data: { bestSellerRank: currentRank + 1 },
+    });
+  }
+}
+
 // GET /api/v1/admin/products
 export const listProducts = async (
   req: AdminRequest,
@@ -23,7 +47,7 @@ export const listProducts = async (
     const searchQuery = req.query.q as string | undefined;
     const category = req.query.category as string | undefined;
 
-    const where: Prisma.ProductWhereInput = {};
+    const where: Prisma.ProductWhereInput = { isActive: true };
 
     if (searchQuery) {
       const sanitized = sanitizeSearchQuery(searchQuery);
@@ -41,7 +65,7 @@ export const listProducts = async (
       prisma.product.findMany({
         where,
         include: {
-          category: { select: { name: true } },
+          category: { select: { id: true, name: true } },
           packSizes: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -57,11 +81,18 @@ export const listProducts = async (
         name: p.name,
         name_hi: p.nameHi,
         slug: p.slug,
-        category: p.category.name,
+        category: p.category ? { id: p.category.id, name: p.category.name } : null,
+        images: Array.isArray((p as any).images) ? (p as any).images : [],
         is_best_seller: p.isBestSeller,
+        best_seller_rank: p.bestSellerRank,
         is_active: p.isActive,
         sales_count: p.salesCount,
-        pack_sizes: p.packSizes.length,
+        pack_sizes: (p.packSizes || []).map(ps => ({
+          size: ps.size,
+          sku: ps.sku,
+          mrp: ps.mrp ? Number(ps.mrp) : null,
+          selling_price: ps.sellingPrice ? Number(ps.sellingPrice) : null,
+        })),
         created_at: p.createdAt,
       })),
       pagination: createPagination(total, page, limit),
@@ -104,10 +135,17 @@ export const createProduct = async (
       }
     }
 
+    // Handle best_seller_rank logic - ensure unique ranks
+    let bestSellerRank: number | null = null;
+    if (data.is_best_seller) {
+      bestSellerRank = data.best_seller_rank ?? 1;
+      await shiftBestSellerRanks(bestSellerRank);
+    }
+
     const product = await prisma.product.create({
       data: {
         name: data.name,
-        nameHi: data.name_hi,
+        nameHi: (data.name_hi && data.name_hi.trim()) ? data.name_hi : data.name,
         slug,
         categoryId: data.category_id,
         description: data.description,
@@ -120,6 +158,7 @@ export const createProduct = async (
         safetyPrecautions: data.safety_precautions || [],
         images: imageUrls,
         isBestSeller: data.is_best_seller,
+        bestSellerRank,
         isActive: data.is_active,
         packSizes: data.pack_sizes ? {
           create: data.pack_sizes.map(ps => ({
@@ -151,6 +190,8 @@ export const createProduct = async (
       name: product.name,
       slug: product.slug,
       category: product.category.name,
+      is_best_seller: product.isBestSeller,
+      best_seller_rank: product.bestSellerRank,
     }, 'Product created successfully', 201);
   } catch (error) {
     next(error);
@@ -178,7 +219,10 @@ export const getProduct = async (
       return sendError(res, ErrorCodes.NOT_FOUND, 'Product not found', 404);
     }
 
-    sendSuccess(res, product);
+    sendSuccess(res, {
+      ...product,
+      best_seller_rank: product.bestSellerRank,
+    });
   } catch (error) {
     next(error);
   }
@@ -192,17 +236,37 @@ export const updateProduct = async (
 ): Promise<void | Response> => {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const raw = req.body;
 
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) {
       return sendError(res, ErrorCodes.NOT_FOUND, 'Product not found', 404);
     }
 
+    const parseJson = (val: unknown): unknown => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    };
+
+    const data = { ...raw };
+    if (typeof data.target_pests === 'string') data.target_pests = parseJson(data.target_pests);
+    if (typeof data.suitable_crops === 'string') data.suitable_crops = parseJson(data.suitable_crops);
+    if (typeof data.safety_precautions === 'string') data.safety_precautions = parseJson(data.safety_precautions);
+    if (typeof data.pack_sizes === 'string') data.pack_sizes = parseJson(data.pack_sizes);
+    if (data.best_seller_rank === '') data.best_seller_rank = null;
+    else if (data.best_seller_rank !== undefined) data.best_seller_rank = parseInt(data.best_seller_rank) || null;
+
     const updateData: Prisma.ProductUpdateInput = {};
 
     if (data.name !== undefined) updateData.name = data.name;
-    if (data.name_hi !== undefined) updateData.nameHi = data.name_hi;
+    if (data.name_hi !== undefined) updateData.nameHi = (data.name_hi && String(data.name_hi).trim()) ? data.name_hi : (data.name || product.nameHi);
     if (data.category_id !== undefined) updateData.category = { connect: { id: data.category_id } };
     if (data.description !== undefined) updateData.description = data.description;
     if (data.description_hi !== undefined) updateData.descriptionHi = data.description_hi;
@@ -213,18 +277,42 @@ export const updateProduct = async (
     if (data.suitable_crops !== undefined) updateData.suitableCrops = data.suitable_crops;
     if (data.safety_precautions !== undefined) updateData.safetyPrecautions = data.safety_precautions;
 
-    // Handle image uploads
-    let imageUrls: string[] = Array.isArray(data.images) ? data.images : (product.images as string[] || []);
+    // Handle image uploads - merge existing_image_urls with newly uploaded files
+    let existingUrls: string[] = [];
+    if (data.existing_image_urls) {
+      const parsed = parseJson(data.existing_image_urls);
+      existingUrls = Array.isArray(parsed) ? parsed.filter((u): u is string => typeof u === 'string') : [];
+    }
+    let imageUrls: string[] = existingUrls.length > 0 ? existingUrls : (Array.isArray(product.images) ? (product.images as string[]) : []);
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      const uploaded: string[] = [];
       for (const file of req.files) {
-        const result = await uploadToCloudinary(file.path, 'products');
-        imageUrls.push(result.url);
+        if (file.path) {
+          const result = await uploadToCloudinary(file.path, 'products');
+          uploaded.push(result.url);
+        }
       }
+      imageUrls = [...existingUrls, ...uploaded];
     }
     updateData.images = imageUrls;
 
-    if (data.is_best_seller !== undefined) updateData.isBestSeller = data.is_best_seller;
-    if (data.is_active !== undefined) updateData.isActive = data.is_active;
+    if (data.is_best_seller !== undefined) {
+      updateData.isBestSeller = data.is_best_seller === 'true' || data.is_best_seller === true;
+      if (!data.is_best_seller) {
+        updateData.bestSellerRank = null;
+      } else {
+        const newRank = data.best_seller_rank !== undefined && data.best_seller_rank !== ''
+          ? parseInt(String(data.best_seller_rank)) || 1
+          : (product.bestSellerRank || 1);
+        await shiftBestSellerRanks(newRank, id);
+        updateData.bestSellerRank = newRank;
+      }
+    } else if (data.best_seller_rank !== undefined && product.isBestSeller) {
+      const newRank = parseInt(String(data.best_seller_rank)) || 1;
+      await shiftBestSellerRanks(newRank, id);
+      updateData.bestSellerRank = newRank;
+    }
+    if (data.is_active !== undefined) updateData.isActive = data.is_active !== 'false' && data.is_active !== false;
 
     const updatedProduct = await prisma.product.update({
       where: { id },

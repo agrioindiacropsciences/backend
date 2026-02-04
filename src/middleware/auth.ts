@@ -38,12 +38,20 @@ export const authenticate = async (
       where: { id: payload.userId },
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       return sendError(
         res,
         ErrorCodes.UNAUTHORIZED,
-        'User not found or inactive',
+        'User not found',
         401
+      );
+    }
+    if (!user.isActive) {
+      return sendError(
+        res,
+        ErrorCodes.ACCOUNT_SUSPENDED,
+        'Your account is suspended. Please contact customer care.',
+        403
       );
     }
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as bannersController from '../../controllers/admin/banners.controller';
 import { requireRole } from '../../middleware/auth';
+import { upload } from '../../middleware/upload';
 
 const router = Router();
 
@@ -8,8 +9,8 @@ const router = Router();
 router.use(requireRole('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/', bannersController.getAllBanners);
-router.post('/', bannersController.createBanner);
-router.put('/:id', bannersController.updateBanner);
+router.post('/', upload.single('image'), bannersController.createBanner);
+router.put('/:id', upload.single('image'), bannersController.updateBanner);
 router.delete('/:id', bannersController.deleteBanner);
 
 export default router;

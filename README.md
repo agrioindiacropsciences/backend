@@ -83,12 +83,29 @@ A comprehensive Node.js/Express backend API for the Agrio India agricultural pla
    cp env.example .env
    ```
    
-   Edit `.env` with your database URL and other credentials:
+   Edit `.env` with your database credentials. You can use either:
+   
+   **Option 1: Individual database variables (Recommended)**
+   ```env
+   DB_DIALECT=postgres
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=agrio_india
+   DB_USER=postgres
+   DB_PASS=your_password
+   DB_SSL=require
+   ```
+   
+   **Option 2: Full DATABASE_URL (Alternative)**
    ```env
    DATABASE_URL="postgresql://user:password@host:port/database?sslmode=require"
+   ```
+   
+   And other required variables:
+   ```env
    JWT_SECRET="your-super-secret-jwt-key-min-32-chars"
    JWT_REFRESH_SECRET="your-refresh-secret-key"
-   # ... other variables
+   # ... see env.example for all variables
    ```
 
 4. **Generate Prisma client**
@@ -265,13 +282,27 @@ Required environment variables for production:
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string |
+| **Database** (use either option): | |
+| `DB_DIALECT` | Database type (default: `postgres`) |
+| `DB_HOST` | Database host |
+| `DB_PORT` | Database port (default: `5432`) |
+| `DB_NAME` | Database name |
+| `DB_USER` | Database username |
+| `DB_PASS` | Database password |
+| `DB_SSL` | SSL mode: `require` or `disable` (default: `require`) |
+| **OR** | |
+| `DATABASE_URL` | Full PostgreSQL connection string (alternative to individual DB_* vars) |
+| **Authentication:** | |
 | `JWT_SECRET` | JWT signing secret (min 32 chars) |
 | `JWT_REFRESH_SECRET` | Refresh token secret |
 | `ADMIN_JWT_SECRET` | Admin JWT secret |
+| **Twilio:** | |
 | `TWILIO_ACCOUNT_SID` | Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Twilio Auth Token |
 | `TWILIO_VERIFY_SERVICE_SID` | Twilio Verify Service SID |
+| **Other:** | |
+| `PORT` | Server port (default: `3000`) |
+| `NODE_ENV` | Environment: `development` or `production` |
 
 ## 📝 Default Admin Credentials
 

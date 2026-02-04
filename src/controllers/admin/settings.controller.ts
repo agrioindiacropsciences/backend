@@ -40,19 +40,31 @@ export const getSettings = async (
           break;
       }
 
-      // Categorize by key prefix
+      // Categorize by key - support both exact keys and prefix matching
       if (config.key.includes('version')) {
         settings.app_version[config.key] = value;
-      } else if (config.key.includes('email') || config.key.includes('phone') || config.key.includes('whatsapp')) {
-        settings.contact[config.key] = value;
+      } else if (config.key === 'support_email' || config.key === 'support_phone' || config.key === 'whatsapp_number' || config.key.includes('email') || config.key.includes('phone') || config.key.includes('whatsapp')) {
+        const contactKey = config.key.replace('contact_', '').replace('contact.', '');
+        settings.contact[contactKey] = value;
       } else if (config.key.includes('facebook') || config.key.includes('instagram') || config.key.includes('youtube')) {
         settings.social[config.key] = value;
-      } else if (config.key.includes('enabled')) {
+      } else if (config.key === 'scan_enabled' || config.key === 'shop_enabled' || config.key === 'referral_enabled' || config.key.includes('enabled')) {
         settings.feature_flags[config.key] = value;
       } else {
         settings.general[config.key] = value;
       }
     }
+
+    // Ensure expected keys exist with defaults for frontend compatibility
+    if (!settings.contact.support_email) settings.contact.support_email = '';
+    if (!settings.contact.support_phone) settings.contact.support_phone = '';
+    if (!settings.contact.whatsapp_number) settings.contact.whatsapp_number = '';
+    if (settings.feature_flags.scan_enabled === undefined) settings.feature_flags.scan_enabled = true;
+    if (settings.feature_flags.shop_enabled === undefined) settings.feature_flags.shop_enabled = false;
+    if (settings.feature_flags.referral_enabled === undefined) settings.feature_flags.referral_enabled = false;
+    if (!settings.general.company_name) settings.general.company_name = 'Agrio India Crop Science';
+    if (!settings.general.address) settings.general.address = '';
+    if (!settings.general.website_url) settings.general.website_url = '';
 
     sendSuccess(res, settings);
   } catch (error) {
@@ -67,7 +79,19 @@ export const updateSettings = async (
   next: NextFunction
 ): Promise<void | Response> => {
   try {
-    const updates = req.body;
+    const raw = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+
+    // Flatten nested objects (contact, feature_flags, general)
+    for (const [key, value] of Object.entries(raw)) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+          updates[nestedKey] = nestedValue;
+        }
+      } else {
+        updates[key] = value;
+      }
+    }
 
     // Process each setting update
     for (const [key, value] of Object.entries(updates)) {

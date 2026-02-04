@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
+import multer from 'multer';
 import { sendError } from '../utils/response';
 import { ErrorCodes } from '../types';
 
@@ -51,6 +52,20 @@ export const errorHandler = (
       400,
       details
     );
+  }
+
+  // Multer errors (file upload)
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'File too large (max 10MB)', 400);
+    }
+    if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, err.message, 400);
+    }
+    return sendError(res, ErrorCodes.VALIDATION_ERROR, err.message, 400);
+  }
+  if (err.message === 'Only images (jpeg, jpg, png, webp) are allowed') {
+    return sendError(res, ErrorCodes.VALIDATION_ERROR, err.message, 400);
   }
 
   // JWT errors

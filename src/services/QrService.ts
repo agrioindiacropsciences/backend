@@ -6,8 +6,16 @@ import { ErrorCodes } from '../types';
 export class QrService {
     /**
      * Generate a batch of QR codes (Coupons) for a campaign
+     * @param productId - Optional product ID for free product coupons
+     * @param expiryDate - Optional expiry date for coupons
      */
-    async generateBatch(campaignId: string, quantity: number, batchNumber: string) {
+    async generateBatch(
+        campaignId: string,
+        quantity: number,
+        batchNumber: string,
+        productId?: string,
+        expiryDate?: Date
+    ) {
         const campaign = await prisma.campaign.findUnique({
             where: { id: campaignId },
         });
@@ -51,17 +59,18 @@ export class QrService {
         // Given 10k, createMany is preferred.
         // I will use `crypto.randomUUID()` or similar if available, or just the custom format.
 
-        // Let's generate purely random UUIDs to allow createMany to succeed with high probability.
         const finalData = Array.from({ length: quantity }).map(() => ({
-            code: crypto.randomUUID(), // Use UUID for guaranteed uniqueness
+            code: crypto.randomUUID(),
             campaignId,
             batchNumber,
-            status: 'UNUSED' as const, // Fix enum type issue
+            ...(productId && { productId }),
+            ...(expiryDate && { expiryDate }),
+            status: 'UNUSED' as const,
         }));
 
         const result = await prisma.coupon.createMany({
             data: finalData,
-            skipDuplicates: true, // In case of collision, though UUID won't collide
+            skipDuplicates: true,
         });
 
         // Update campaign totalQrCodes

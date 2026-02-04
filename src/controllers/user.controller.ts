@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/response';
-import { createProfileSchema, updateProfileSchema, updateLanguageSchema, syncCropsSchema } from '../utils/validation';
+import { createProfileSchema, updateProfileSchema, updateLanguageSchema, syncCropsSchema, registerFcmTokenSchema } from '../utils/validation';
 import { AuthenticatedRequest, ErrorCodes } from '../types';
 import { AppError } from '../middleware/errorHandler';
 import { parsePagination, createPagination } from '../utils/helpers';
@@ -487,5 +487,135 @@ export const updateAvatar = async (
   }
 };
 
+// DELETE /api/v1/user/account - Delete user account (Google Play Store compliance)
+export const deleteAccount = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const userId = req.userId!;
 
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, phoneNumber: true, fullName: true },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', ErrorCodes.NOT_FOUND, 404);
+    }
+
+    // Delete user and all associated data in a transaction
+    // Note: Most relations have onDelete: Cascade, but we handle others explicitly
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete scan redemptions (no cascade defined)
+      await tx.scanRedemption.deleteMany({
+        where: { userId },
+      });
+
+      // 2. Set usedBy to null for coupons (preserve coupon data but anonymize)
+      await tx.coupon.updateMany({
+        where: { usedBy: userId },
+        data: { usedBy: null },
+      });
+
+      // 3. Delete support tickets (no cascade defined)
+      await tx.supportTicket.deleteMany({
+        where: { userId },
+      });
+
+      // 4. Delete the user (this cascades to: preferences, crops, refreshTokens, notifications)
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
+
+    // Log the deletion for audit purposes
+    console.log(`Account deleted: User ${userId} (${user.phoneNumber}) at ${new Date().toISOString()}`);
+
+    sendSuccess(res, {
+      deleted: true,
+      message: 'Your account and all associated data have been permanently deleted.',
+      deleted_data: [
+        'Profile information',
+        'Preferences and settings',
+        'Crop preferences',
+        'Notifications',
+        'Support tickets',
+        'Scan history and redemptions',
+        'Login sessions',
+      ],
+    }, 'Account deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/v1/user/account/deletion-info - Information about account deletion (public info for Play Store)
+export const getAccountDeletionInfo = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    sendSuccess(res, {
+      app_name: 'Agrio India',
+      deletion_endpoint: 'DELETE /api/v1/user/account',
+      requires_authentication: true,
+      data_deleted: [
+        {
+          type: 'Profile Information',
+          description: 'Name, email, phone number, address, profile picture',
+          retention: 'Deleted immediately',
+        },
+        {
+          type: 'Preferences',
+          description: 'Language settings, notification preferences, crop preferences',
+          retention: 'Deleted immediately',
+        },
+        {
+          type: 'Activity Data',
+          description: 'Scan history, redemptions, rewards',
+          retention: 'Deleted immediately',
+        },
+        {
+          type: 'Support Tickets',
+          description: 'All support requests and conversations',
+          retention: 'Deleted immediately',
+        },
+        {
+          type: 'Notifications',
+          description: 'All push notification history',
+          retention: 'Deleted immediately',
+        },
+        {
+          type: 'Session Data',
+          description: 'Login tokens and sessions',
+          retention: 'Deleted immediately',
+        },
+      ],
+      data_retained: [
+        {
+          type: 'Anonymized Coupon Usage',
+          description: 'Coupon codes you scanned are retained for business analytics but are no longer linked to your identity',
+          retention: 'Retained anonymously',
+        },
+      ],
+      instructions: [
+        'Open the Agrio India app',
+        'Go to Profile > Settings',
+        'Tap "Delete Account"',
+        'Confirm your decision',
+        'Your account will be permanently deleted',
+      ],
+      contact: {
+        email: 'support@agrioindia.com',
+        in_app: 'Help & Support section in the app',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
