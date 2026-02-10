@@ -1,14 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { apiRouter } from './routes';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,7 +62,8 @@ app.get('/health', (_req, res) => {
 app.use('/api/v1', apiRouter);
 
 // 404 handler
-app.use((_req, res) => {
+app.use((req, res) => {
+  console.log(`[404] Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
     error: {

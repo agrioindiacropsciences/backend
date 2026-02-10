@@ -62,6 +62,11 @@ export const getAppConfig = async (
         shop_enabled: configMap['shop_enabled'] ?? false,
         referral_enabled: configMap['referral_enabled'] ?? true,
       },
+      content: {
+        home_features: configMap['home_features'] || [],
+        why_choose_us: configMap['home_why_choose_us'] || [],
+        home_hero: configMap['home_hero_config'] || {},
+      },
     });
   } catch (error) {
     next(error);

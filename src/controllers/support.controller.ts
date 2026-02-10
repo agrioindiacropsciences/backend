@@ -112,13 +112,13 @@ export const getAccountDeletionInfo = async (
       app_name: 'Agrio India',
       developer: 'Agrio India Crop Science',
       last_updated: '2026-02-02',
-      
+
       title: 'Account Deletion Request',
       title_hi: 'खाता हटाने का अनुरोध',
-      
+
       description: 'You can request deletion of your Agrio India account and associated data at any time.',
       description_hi: 'आप किसी भी समय अपने Agrio India खाते और संबंधित डेटा को हटाने का अनुरोध कर सकते हैं।',
-      
+
       how_to_delete: {
         title: 'How to Delete Your Account',
         title_hi: 'अपना खाता कैसे हटाएं',
@@ -150,7 +150,7 @@ export const getAccountDeletionInfo = async (
           },
         ],
       },
-      
+
       data_deleted: {
         title: 'Data That Will Be Deleted',
         title_hi: 'डेटा जो हटाया जाएगा',
@@ -205,7 +205,7 @@ export const getAccountDeletionInfo = async (
           },
         ],
       },
-      
+
       data_retained: {
         title: 'Data That May Be Retained',
         title_hi: 'डेटा जो रखा जा सकता है',
@@ -220,7 +220,7 @@ export const getAccountDeletionInfo = async (
           },
         ],
       },
-      
+
       contact: {
         title: 'Need Help?',
         title_hi: 'मदद चाहिए?',
@@ -230,7 +230,7 @@ export const getAccountDeletionInfo = async (
         in_app: 'Help & Support section in the app',
         in_app_hi: 'ऐप में सहायता और समर्थन अनुभाग',
       },
-      
+
       api_endpoint: {
         method: 'DELETE',
         url: '/api/v1/user/account',

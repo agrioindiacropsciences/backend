@@ -24,7 +24,7 @@ router.use('/auth', authRoutes);
 
 // All other routes require admin authentication
 router.use('/dashboard', adminAuth, dashboardRoutes);
-router.use('/users', adminAuth, usersRoutes);
+router.use('/users', adminAuth, usersRoutes); // Reload force
 router.use('/products', adminAuth, productsRoutes);
 router.use('/coupons', adminAuth, couponsRoutes);
 router.use('/campaigns', adminAuth, campaignsRoutes);

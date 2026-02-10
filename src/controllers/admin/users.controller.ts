@@ -204,6 +204,60 @@ export const updateUserStatus = async (
   }
 };
 
+// DELETE /api/v1/admin/users/:id
+export const deleteUser = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'User not found', 404);
+    }
+
+    // Use a transaction to delete all related data first
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete Refresh Tokens
+      await tx.refreshToken.deleteMany({ where: { userId: id } });
+
+      // 2. Delete User Preferences
+      await tx.userPreference.deleteMany({ where: { userId: id } });
+
+      // 3. Delete User Crops
+      await tx.userCrop.deleteMany({ where: { userId: id } });
+
+      // 4. Delete Notifications
+      await tx.notification.deleteMany({ where: { userId: id } });
+
+      // 5. Delete Support Tickets
+      await tx.supportTicket.deleteMany({ where: { userId: id } });
+
+      // 6. Delete Scan Redemptions (This might be risky if we want to keep history, but for full delete we proceed)
+      await tx.scanRedemption.deleteMany({ where: { userId: id } });
+
+      // 7. Update Coupons used by user to null (or delete if business logic dictates)
+      // Here we set usedBy to null to keep the coupon record but disassociate user
+      await tx.coupon.updateMany({
+        where: { usedBy: id },
+        data: { usedBy: null, usedAt: null, status: 'UNUSED' }
+      });
+
+      // 8. Finally delete the user
+      await tx.user.delete({ where: { id } });
+    });
+
+    console.log(`Admin ${req.adminId} deleted user ${id} and all associated data.`);
+
+    sendSuccess(res, null, 'User and all associated data deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /api/v1/admin/users/export
 export const exportUsers = async (
   req: AdminRequest,
@@ -212,7 +266,7 @@ export const exportUsers = async (
 ): Promise<void | Response> => {
   try {
     const format = (req.query.format as string) || 'csv';
-    
+
     const users = await prisma.user.findMany({
       include: {
         crops: {
@@ -227,7 +281,7 @@ export const exportUsers = async (
 
     if (format === 'csv') {
       const csvHeader = 'ID,Name,Phone,Email,State,District,Crops,Total Scans,Status,Joined Date\n';
-      const csvData = users.map(user => 
+      const csvData = users.map(user =>
         `${user.id},${user.fullName || ''},${user.phoneNumber},${user.email || ''},${user.state || ''},${user.district || ''},"${user.crops.map(c => c.crop.name).join(', ')}",${user._count.redemptions},${user.isActive ? 'Active' : 'Suspended'},${formatDate(user.createdAt)}`
       ).join('\n');
 

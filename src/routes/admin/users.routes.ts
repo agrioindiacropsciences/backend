@@ -15,5 +15,8 @@ router.get('/:id', usersController.getUserDetails);
 // PUT /api/v1/admin/users/:id/status
 router.put('/:id/status', usersController.updateUserStatus);
 
+// DELETE /api/v1/admin/users/:id
+router.delete('/:id', usersController.deleteUser);
+
 export default router;
 

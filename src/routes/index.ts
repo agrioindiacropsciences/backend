@@ -23,7 +23,7 @@ apiRouter.use('/auth', authRoutes);
 apiRouter.use('/user', userRoutes);
 apiRouter.use('/users', userRoutes); // Alias for plural convenience
 
-apiRouter.use('/crops', cropsRoutes);
+apiRouter.use('/crops', cropsRoutes); // Reload force
 apiRouter.use('/products', productsRoutes);
 apiRouter.use('/categories', categoriesRoutes);
 apiRouter.use('/distributors', distributorsRoutes);
