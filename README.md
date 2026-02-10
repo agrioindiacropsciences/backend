@@ -308,8 +308,8 @@ Required environment variables for production:
 
 After running the seed:
 
-- **Email**: admin@agrioindia.com
-- **Password**: admin123
+- **Email**: admin@agrioindiacropsciences.com
+- **Password**: f7formula7
 
 ⚠️ **Change these credentials in production!**
 

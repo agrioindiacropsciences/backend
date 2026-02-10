@@ -7,13 +7,13 @@ async function main() {
   console.log('🌱 Starting database seed...');
 
   // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 12);
+  const adminPassword = await bcrypt.hash('f7formula7', 12);
   await prisma.adminUser.upsert({
-    where: { email: 'admin@agrioindia.com' },
+    where: { email: 'admin@agrioindiacropsciences.com' },
     update: {},
     create: {
       name: 'Super Admin',
-      email: 'admin@agrioindia.com',
+      email: 'admin@agrioindiacropsciences.com',
       passwordHash: adminPassword,
       role: 'SUPER_ADMIN',
       isActive: true,
