@@ -36,18 +36,21 @@ function getDatabaseUrl(): string {
 
   // Construct connection URL with connection_limit to prevent "too many clients"
   const sslMode = process.env.DB_SSL === 'false' ? 'disable' : 'require';
-  const connLimit = process.env.DB_CONNECTION_LIMIT || '5';
-  return `${dialect}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}?sslmode=${sslMode}&connection_limit=${connLimit}`;
+  const connLimit = process.env.DB_CONNECTION_LIMIT || '10';
+  const poolTimeout = process.env.DB_POOL_TIMEOUT || '20';
+  return `${dialect}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}?sslmode=${sslMode}&connection_limit=${connLimit}&pool_timeout=${poolTimeout}`;
 }
 
 // Set DATABASE_URL in environment for Prisma (with connection pooling)
 let databaseUrl = getDatabaseUrl();
-if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('connection_limit')) {
-  const sep = process.env.DATABASE_URL.includes('?') ? '&' : '?';
-  databaseUrl = `${process.env.DATABASE_URL}${sep}connection_limit=${process.env.DB_CONNECTION_LIMIT || '5'}`;
-} else if (!databaseUrl.includes('connection_limit')) {
+// Add parameters if not present
+if (!databaseUrl.includes('connection_limit')) {
   const sep = databaseUrl.includes('?') ? '&' : '?';
-  databaseUrl = `${databaseUrl}${sep}connection_limit=${process.env.DB_CONNECTION_LIMIT || '5'}`;
+  databaseUrl += `${sep}connection_limit=10`;
+}
+if (!databaseUrl.includes('pool_timeout')) {
+  const sep = databaseUrl.includes('?') ? '&' : '?';
+  databaseUrl += `${sep}pool_timeout=20`;
 }
 process.env.DATABASE_URL = databaseUrl;
 

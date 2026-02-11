@@ -25,5 +25,17 @@ npm-debug.log*
 prisma/*.db
 prisma/*.db-journal
 
+# Uploads
+uploads/
+
+# Scripts
+scripts/test_*.ts
+scripts/debug_*.ts
+scripts/trace_*.ts
+scripts/check_*.ts
+scripts/seed_*.ts
+scripts/simulate_*.ts
+scripts/list_*.ts
+
 # Firebase downloads (use src/config/firebase-service-account.json)
 agrio-india-crop-science-firebase-adminsdk-*.json

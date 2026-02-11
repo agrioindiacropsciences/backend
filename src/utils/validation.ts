@@ -75,6 +75,13 @@ export const contactFormSchema = z.object({
   message: z.string().min(10).max(2000),
 });
 
+export const aiChatSchema = z.object({
+  message: z.string().min(1, 'Message is required'),
+  session_id: z.string().uuid().optional(),
+  channel: z.enum(['web', 'app', 'admin']).default('web'),
+  language: z.enum(['en', 'hi']).default('en'),
+});
+
 // Coupon Schemas
 export const verifyCouponSchema = z.object({
   coupon_code: z.string().min(5).max(30),

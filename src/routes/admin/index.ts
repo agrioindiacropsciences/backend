@@ -12,6 +12,7 @@ import bannersRoutes from './banners.routes';
 import campaignsRoutes from './campaigns.routes';
 import categoriesRoutes from './categories.routes';
 import { adminAuth } from '../../middleware/auth';
+import aiKnowledgeRoutes from './aiKnowledge.routes';
 
 import { adminRateLimiter } from '../../middleware/rateLimiter';
 
@@ -35,6 +36,7 @@ router.use('/reports', adminAuth, reportsRoutes);
 router.use('/settings', adminAuth, settingsRoutes);
 router.use('/cms', adminAuth, cmsRoutes);
 router.use('/banners', adminAuth, bannersRoutes);
+router.use('/ai-knowledge', adminAuth, aiKnowledgeRoutes);
 
 export default router;
 
