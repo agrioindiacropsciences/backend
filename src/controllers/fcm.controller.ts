@@ -143,16 +143,16 @@ export const sendManualNotification = async (
 
       // Send to all tokens of the user
       const results = await Promise.allSettled(
-        fcmTokens.map(token =>
+        fcmTokens.map((token: { token: string }) =>
           NotificationService.sendToDevice(token.token, title, body, imageUrl, data, userId)
         )
       );
 
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const successCount = results.filter((r: PromiseSettledResult<unknown>) => r.status === 'fulfilled').length;
       response = {
         sent_to_tokens: successCount,
         total_tokens: fcmTokens.length,
-        results: results.map((r, i) => ({
+        results: results.map((r: PromiseSettledResult<unknown>, i: number) => ({
           token: fcmTokens[i].token,
           status: r.status === 'fulfilled' ? 'success' : 'failed',
           error: r.status === 'rejected' ? (r.reason as Error).message : undefined,

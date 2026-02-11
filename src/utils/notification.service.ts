@@ -201,10 +201,10 @@ export class NotificationService {
         }
 
         const results = await Promise.allSettled(
-            fcmTokens.map(token => this.sendToDevice(token.token, title, body, imageUrl, data, userId))
+            fcmTokens.map((token: { token: string }) => this.sendToDevice(token.token, title, body, imageUrl, data, userId))
         );
 
-        const successCount = results.filter(r => r.status === 'fulfilled').length;
+        const successCount = results.filter((r: PromiseSettledResult<unknown>) => r.status === 'fulfilled').length;
         console.log(`Sent notification to ${successCount}/${fcmTokens.length} devices for user ${userId}`);
 
         return { sent: successCount, total: fcmTokens.length };

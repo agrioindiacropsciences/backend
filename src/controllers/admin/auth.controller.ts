@@ -4,7 +4,7 @@ import prisma from '../../lib/prisma';
 import { sendSuccess } from '../../utils/response';
 import { adminLoginSchema, refreshTokenSchema } from '../../utils/validation';
 import { generateAdminAccessToken, generateAdminRefreshToken, verifyAdminToken, getTokenExpiry } from '../../utils/jwt';
-import { ErrorCodes } from '../../types';
+import { AdminRequest, ErrorCodes } from '../../types';
 import { AppError } from '../../middleware/errorHandler';
 
 // POST /api/v1/admin/auth/login
@@ -77,7 +77,7 @@ export const login = async (
 
 // GET /api/v1/admin/auth/me - current admin profile (validates token, returns admin from DB)
 export const me = async (
-  req: Request,
+  req: AdminRequest,
   res: Response,
   next: NextFunction
 ): Promise<void | Response> => {

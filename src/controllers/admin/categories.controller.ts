@@ -79,8 +79,7 @@ export const updateCategory = async (
       const active =
         is_active === true ||
         is_active === 'true' ||
-        is_active === '1' ||
-        is_active === 1;
+        is_active === '1';
       data.isActive = active;
     }
     if (display_order !== undefined) {
@@ -121,7 +120,7 @@ export const listCategoryProducts = async (
   try {
     const id = (req.params.id || '').trim();
     if (!id) {
-      return sendError(res, ErrorCodes.BAD_REQUEST, 'Category id is required', 400);
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Category id is required', 400);
     }
     const category = await prisma.category.findUnique({ where: { id } });
     if (!category) {
@@ -169,7 +168,7 @@ export const deleteCategory = async (
     if (productCount > 0) {
       return sendError(
         res,
-        ErrorCodes.BAD_REQUEST,
+        ErrorCodes.VALIDATION_ERROR,
         `Cannot delete category: ${productCount} product(s) belong to this category. Move or delete them first.`,
         400
       );
