@@ -75,6 +75,27 @@ export const login = async (
   }
 };
 
+// GET /api/v1/admin/auth/me - current admin profile (validates token, returns admin from DB)
+export const me = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const admin = req.admin!;
+    sendSuccess(res, {
+      admin: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // POST /api/v1/admin/auth/refresh
 export const refreshToken = async (
   req: Request,

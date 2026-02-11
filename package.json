@@ -17,6 +17,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:admin": "tsx prisma/seed_admin.ts",
     "db:studio": "prisma studio",
     "db:migrate:best-seller": "tsx scripts/run_best_seller_migration.ts",
     "fix:best-seller-ranks": "tsx scripts/fix_best_seller_ranks.ts"

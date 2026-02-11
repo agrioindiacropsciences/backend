@@ -6,14 +6,14 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // Create admin user
+  // Create admin user (credentials validated from DB only)
   const adminPassword = await bcrypt.hash('f7formula7', 12);
   await prisma.adminUser.upsert({
-    where: { email: 'admin@agrioindiacropsciences.com' },
-    update: {},
+    where: { email: 'agrioindiacropsciences@gmail.com' },
+    update: { passwordHash: adminPassword, name: 'Super Admin', role: 'SUPER_ADMIN', isActive: true },
     create: {
       name: 'Super Admin',
-      email: 'admin@agrioindiacropsciences.com',
+      email: 'agrioindiacropsciences@gmail.com',
       passwordHash: adminPassword,
       role: 'SUPER_ADMIN',
       isActive: true,

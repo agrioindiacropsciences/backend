@@ -112,3 +112,72 @@ export const updateCategory = async (
   }
 };
 
+// GET /api/v1/admin/categories/:id/products
+export const listCategoryProducts = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const id = (req.params.id || '').trim();
+    if (!id) {
+      return sendError(res, ErrorCodes.BAD_REQUEST, 'Category id is required', 400);
+    }
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'Category not found', 404);
+    }
+    const products = await prisma.product.findMany({
+      where: { categoryId: category.id },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        nameHi: true,
+        slug: true,
+        isActive: true,
+      },
+    });
+    const list = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      name_hi: p.nameHi,
+      slug: p.slug,
+      is_active: p.isActive,
+    }));
+    sendSuccess(res, list);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/v1/admin/categories/:id
+export const deleteCategory = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { id } = req.params;
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'Category not found', 404);
+    }
+    const productCount = await prisma.product.count({
+      where: { categoryId: id },
+    });
+    if (productCount > 0) {
+      return sendError(
+        res,
+        ErrorCodes.BAD_REQUEST,
+        `Cannot delete category: ${productCount} product(s) belong to this category. Move or delete them first.`,
+        400
+      );
+    }
+    await prisma.category.delete({ where: { id } });
+    sendSuccess(res, { message: 'Category deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
