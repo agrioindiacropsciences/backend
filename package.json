@@ -23,6 +23,7 @@
     "fix:best-seller-ranks": "tsx scripts/fix_best_seller_ranks.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
     "@types/axios": "^0.9.36",
     "@types/bcryptjs": "^2.4.6",
