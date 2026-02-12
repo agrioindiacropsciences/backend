@@ -10,6 +10,8 @@ import { AppError } from '../middleware/errorHandler';
 // Check if running in development mode
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const DEV_OTP_CODE = '123456'; // Dev bypass OTP code
+const APPLE_TEST_PHONE = '9876543211'; // Apple test phone number
+const APPLE_TEST_OTP = '1234'; // Apple test OTP code
 
 // POST /api/v1/auth/send-otp
 export const sendOtp = async (
@@ -28,6 +30,16 @@ export const sendOtp = async (
     await prisma.otpVerification.deleteMany({
       where: { phoneNumber: phone_number },
     });
+
+    // Bypass for Apple Test Number
+    if (phone_number === APPLE_TEST_PHONE) {
+      const requestId = generateRequestId();
+      return sendSuccess(res, {
+        request_id: requestId,
+        verification_sid: 'apple-test-sid',
+        expires_in: 600,
+      }, 'OTP sent successfully (Test Number)');
+    }
 
     // Send OTP via Twilio Verify API
     const smsResult = await sendOtpViaSms(phone_number);
@@ -73,11 +85,14 @@ export const verifyOtp = async (
 
     // Check if Twilio is configured
     const twilioNotConfigured = !process.env.TWILIO_VERIFY_SERVICE_SID;
-    
+
+    // Check for Apple Test Number bypass
+    const isAppleTestBypass = phone_number === APPLE_TEST_PHONE && otp_code === APPLE_TEST_OTP;
+
     // DEV MODE or No Twilio: Allow bypass with "123456" code
     const isDevBypass = (isDevelopment || twilioNotConfigured) && otp_code === DEV_OTP_CODE;
 
-    if (!isDevBypass) {
+    if (!isDevBypass && !isAppleTestBypass) {
       // Find OTP verification record (tracking that send-otp was called)
       const otpRecord = await prisma.otpVerification.findFirst({
         where: {

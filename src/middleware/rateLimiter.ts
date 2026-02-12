@@ -24,6 +24,9 @@ export const rateLimiter = rateLimit({
 export const otpRateLimiter = rateLimit({
   windowMs: parseInt(process.env.OTP_RATE_LIMIT_WINDOW_MS || '3600000'),
   max: parseInt(process.env.OTP_RATE_LIMIT_MAX || '5'),
+  skip: (req) => {
+    return req.body?.phone_number === '9876543211';
+  },
   message: {
     success: false,
     error: {
