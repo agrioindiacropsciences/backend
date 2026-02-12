@@ -10,8 +10,8 @@ if (!GEMINI_API_KEY) {
 
 // Initialize the API client
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
-// Use flash-latest for best speed/cost balance, or pro if needed
-const model = genAI ? genAI.getGenerativeModel({ model: 'gemini-flash-latest' }) : null;
+// Using gemini-2.5-flash for best speed/cost balance and quota availability
+const model = genAI ? genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }) : null;
 
 interface GeminiMessage {
   role: 'user' | 'model';
