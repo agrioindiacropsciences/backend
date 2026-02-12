@@ -73,7 +73,7 @@ export async function generateSupportReply(
   };
 
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent' +
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent' +
     `?key=${encodeURIComponent(GEMINI_API_KEY)}`,
     {
       method: 'POST',
