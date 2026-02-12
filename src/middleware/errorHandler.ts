@@ -120,8 +120,10 @@ export const errorHandler = (
   // Default server error
   return sendError(
     res,
-    'SERVER_ERROR',
-    err.message,
+    ErrorCodes.SERVER_ERROR,
+    process.env.NODE_ENV === 'production'
+      ? 'An unexpected error occurred'
+      : err.message,
     500
   );
 };
