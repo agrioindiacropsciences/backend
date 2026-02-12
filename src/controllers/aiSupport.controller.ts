@@ -121,6 +121,8 @@ export const chat = async (
       reply,
     });
   } catch (error) {
+    console.error('[AiSupportController] Error:', error);
+
     if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
       return sendError(
         res,
