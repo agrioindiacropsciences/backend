@@ -83,6 +83,8 @@ export const listProducts = async (
         slug: p.slug,
         category: p.category ? { id: p.category.id, name: p.category.name } : null,
         images: Array.isArray((p as any).images) ? (p as any).images : [],
+        composition: p.composition,
+        dosage: p.dosage,
         is_best_seller: p.isBestSeller,
         best_seller_rank: p.bestSellerRank,
         is_active: p.isActive,
@@ -160,13 +162,17 @@ export const createProduct = async (
         isBestSeller: data.is_best_seller,
         bestSellerRank,
         isActive: data.is_active,
-        packSizes: data.pack_sizes ? {
-          create: data.pack_sizes.map(ps => ({
-            size: ps.size,
-            sku: ps.sku,
-            mrp: ps.mrp,
-            sellingPrice: ps.selling_price,
-          })),
+        packSizes: data.pack_sizes && data.pack_sizes.length > 0 ? {
+          create: data.pack_sizes.map((ps, i) => {
+            const safeSize = (ps.size || '').replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+            const sku = (ps.sku && ps.sku.trim()) ? ps.sku.trim() : `${slug}-${i + 1}-${safeSize || 'pack'}`;
+            return {
+              size: ps.size,
+              sku,
+              mrp: ps.mrp ?? null,
+              sellingPrice: ps.selling_price ?? null,
+            };
+          }),
         } : undefined,
       },
       include: {
@@ -320,17 +326,22 @@ export const updateProduct = async (
     });
 
     // Update pack sizes if provided
-    if (data.pack_sizes) {
-      // Delete existing and create new
+    if (data.pack_sizes && Array.isArray(data.pack_sizes) && data.pack_sizes.length > 0) {
       await prisma.productPackSize.deleteMany({ where: { productId: id } });
+      const slug = (updatedProduct as any).slug || product.slug;
       await prisma.productPackSize.createMany({
-        data: data.pack_sizes.map((ps: any) => ({
-          productId: id,
-          size: ps.size,
-          sku: ps.sku,
-          mrp: ps.mrp,
-          sellingPrice: ps.selling_price,
-        })),
+        data: data.pack_sizes.map((ps: { size?: string; sku?: string; mrp?: number; selling_price?: number }, i: number) => {
+          const size = ps.size || '';
+          const safeSize = size.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+          const sku = (ps.sku && String(ps.sku).trim()) ? String(ps.sku).trim() : `${slug}-${i + 1}-${safeSize || 'pack'}`;
+          return {
+            productId: id,
+            size,
+            sku,
+            mrp: ps.mrp ?? null,
+            sellingPrice: ps.selling_price ?? null,
+          };
+        }),
       });
     }
 

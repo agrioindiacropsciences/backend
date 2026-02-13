@@ -42,7 +42,7 @@ export const getDistributors = async (
       ];
     }
 
-    // 2. Filter by Search Query if provided
+    // 2. Filter by Search Query if provided (name, area, address, phone, etc.)
     if (q) {
       const searchTerms = {
         contains: q,
@@ -57,6 +57,8 @@ export const getDistributors = async (
         { addressArea: searchTerms },
         { addressState: searchTerms },
         { addressPincode: searchTerms },
+        { phone: searchTerms },
+        { whatsapp: searchTerms },
       ];
     }
 
