@@ -244,15 +244,102 @@ export const updateCampaign = async (
       }
     }
 
-    const campaign = await prisma.campaign.update({
-      where: { id },
-      data: updateData,
-      include: {
-        tiers: {
-          orderBy: { priority: 'asc' },
+    let campaign;
+
+    if (data.tiers) {
+      const inputTiers = data.tiers;
+      // Update with tiers management
+      campaign = await prisma.$transaction(async (tx) => {
+        // 1. Update Campaign Details
+        await tx.campaign.update({
+          where: { id },
+          data: updateData,
+        });
+
+        // 2. Handle Tiers
+        const keptTierIds: string[] = [];
+
+        for (const tierData of inputTiers) {
+          if (tierData.id) {
+            // Update existing tier
+            await tx.campaignTier.update({
+              where: { id: tierData.id },
+              data: {
+                tierName: tierData.tier_name,
+                rewardName: tierData.reward_name,
+                rewardNameHi: tierData.reward_name_hi,
+                rewardType: tierData.reward_type,
+                rewardValue: tierData.reward_value,
+                probability: tierData.probability,
+                priority: tierData.priority,
+                maxWinners: tierData.max_winners,
+                imageUrl: (tierData as any).image_url || null,
+              },
+            });
+            keptTierIds.push(tierData.id);
+          } else {
+            // Create new tier
+            const newTier = await tx.campaignTier.create({
+              data: {
+                campaignId: id,
+                tierName: tierData.tier_name,
+                rewardName: tierData.reward_name,
+                rewardNameHi: tierData.reward_name_hi,
+                rewardType: tierData.reward_type,
+                rewardValue: tierData.reward_value,
+                probability: tierData.probability,
+                priority: tierData.priority,
+                maxWinners: tierData.max_winners,
+                imageUrl: (tierData as any).image_url || null,
+              },
+            });
+            keptTierIds.push(newTier.id);
+          }
+        }
+
+        // 3. Delete removed tiers (only if no redemptions)
+        const tiersToDelete = await tx.campaignTier.findMany({
+          where: {
+            campaignId: id,
+            id: { notIn: keptTierIds },
+          },
+          select: { id: true, _count: { select: { redemptions: true } } },
+        });
+
+        for (const tier of tiersToDelete) {
+          if (tier._count.redemptions > 0) {
+            throw new AppError(
+              `Cannot delete tier (ID: ${tier.id}) because it has existing redemptions. Please mark campaign inactive instead.`,
+              ErrorCodes.CONFLICT,
+              409
+            );
+          }
+          await tx.campaignTier.delete({ where: { id: tier.id } });
+        }
+
+        return tx.campaign.findUnique({
+          where: { id },
+          include: {
+            tiers: { orderBy: { priority: 'asc' } },
+          },
+        });
+      });
+    } else {
+      // Simple update without tiers
+      campaign = await prisma.campaign.update({
+        where: { id },
+        data: updateData,
+        include: {
+          tiers: {
+            orderBy: { priority: 'asc' },
+          },
         },
-      },
-    });
+      });
+    }
+
+    if (!campaign) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'Campaign not found after update', 404);
+    }
 
     sendSuccess(res, {
       id: campaign.id,
@@ -290,24 +377,48 @@ export const deleteCampaign = async (
   try {
     const { id } = req.params;
 
-    // Check if campaign has coupons
-    const couponCount = await prisma.coupon.count({
-      where: { campaignId: id },
+    // Use a transaction to ensure atomic deletion of all associated data
+    await prisma.$transaction(async (tx) => {
+      // 1. Get all coupon IDs for this campaign
+      const coupons = await tx.coupon.findMany({
+        where: { campaignId: id },
+        select: { id: true }
+      });
+      const couponIds = coupons.map(c => c.id);
+
+      // 2. Get all tier IDs for this campaign
+      const tiers = await tx.campaignTier.findMany({
+        where: { campaignId: id },
+        select: { id: true }
+      });
+      const tierIds = tiers.map(t => t.id);
+
+      // 3. Clear scan redemptions linked to coupons or tiers
+      if (couponIds.length > 0 || tierIds.length > 0) {
+        await tx.scanRedemption.deleteMany({
+          where: {
+            OR: [
+              { couponId: { in: couponIds } },
+              { campaignTierId: { in: tierIds } }
+            ]
+          }
+        });
+      }
+
+      // 4. Delete associated coupons
+      if (couponIds.length > 0) {
+        await tx.coupon.deleteMany({
+          where: { campaignId: id }
+        });
+      }
+
+      // 5. Delete the campaign (tiers will be deleted via Cascade in schema if available, but for safety handled by campaign delete)
+      await tx.campaign.delete({
+        where: { id }
+      });
     });
 
-    if (couponCount > 0) {
-      throw new AppError(
-        `Cannot delete campaign with ${couponCount} existing coupons. Delete coupons first.`,
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
-    }
-
-    await prisma.campaign.delete({
-      where: { id },
-    });
-
-    sendSuccess(res, null, 'Campaign deleted successfully');
+    sendSuccess(res, null, 'Campaign and all associated data deleted successfully');
   } catch (error) {
     next(error);
   }

@@ -52,12 +52,14 @@
     "twilio": "^5.11.2",
     "typescript": "^5.6.3",
     "uuid": "^10.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/pdf-parse": "^1.1.5"
+    "@types/pdf-parse": "^1.1.5",
+    "@types/xlsx": "^0.0.35"
   }
 }

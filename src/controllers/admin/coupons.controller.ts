@@ -20,55 +20,69 @@ export const listCoupons = async (
 
     const code = req.query.code as string | undefined;
     const status = req.query.status as string | undefined;
-    const productId = req.query.product_id as string | undefined;
 
-    const where: Prisma.CouponWhereInput = {};
+    // ProductCoupon doesn't have productId directly
+    // const productId = req.query.product_id as string | undefined;
+
+    const where: Prisma.ProductCouponWhereInput = {};
 
     if (code) {
-      where.code = { contains: code.toUpperCase() };
+      where.serialNumber = { contains: code }; // User searches serial
     }
 
     if (status) {
-      where.status = status.toUpperCase() as 'UNUSED' | 'USED' | 'EXPIRED';
-    }
-
-    if (productId) {
-      where.productId = productId;
+      if (status.toUpperCase() === 'USED') {
+        where.isRedeemed = true;
+      } else if (status.toUpperCase() === 'UNUSED') {
+        where.isRedeemed = false;
+      }
     }
 
     const [coupons, total] = await Promise.all([
-      prisma.coupon.findMany({
+      prisma.productCoupon.findMany({
         where,
         include: {
-          product: { select: { id: true, name: true } },
-          campaign: { include: { tiers: { take: 1, orderBy: { priority: 'asc' } } } },
           user: { select: { fullName: true, phoneNumber: true } },
+          redemptions: {
+            include: {
+              tier: {
+                include: { campaign: { select: { name: true } } }
+              }
+            }
+          }
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.coupon.count({ where }),
+      prisma.productCoupon.count({ where }),
     ]);
 
     sendSuccess(res, {
       coupons: coupons.map(c => {
-        const tier = (c.campaign as any)?.tiers?.[0];
+        const redemption = c.redemptions?.[0];
+        const tier = redemption?.tier;
+        const campaignName = tier?.campaign?.name;
+
+        const user = (c as any).user;
+
+
         return {
           id: c.id,
-          code: c.code,
-          product: c.product ? { id: c.product.id, name: c.product.name } : null,
-          campaign: c.campaign?.name,
+          code: c.serialNumber, // Map Serial to Code
+          product: null, // Product link not direct in new schema
+          campaign: campaignName || null,
           batch_number: c.batchNumber,
-          status: c.status,
-          is_used: c.status === 'USED',
-          reward_type: tier?.rewardType || null,
-          reward_value: tier?.rewardValue ? Number(tier.rewardValue) : null,
-          used_by: c.user ? { name: c.user.fullName, phone: c.user.phoneNumber } : null,
-          redeemed_by: c.user ? { name: c.user.fullName, phone: c.user.phoneNumber } : null,
-          used_at: c.usedAt,
-          expiry_date: c.expiryDate,
+          status: c.isRedeemed ? 'USED' : 'UNUSED',
+          is_used: c.isRedeemed,
+          reward_type: redemption?.prizeType || null,
+          reward_value: redemption?.prizeValue ? Number(redemption.prizeValue) : null,
+          used_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
+          redeemed_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
+          used_at: c.redeemedAt,
+          expiry_date: null,
           created_at: c.createdAt,
+          auth_code: c.authCode // Extra field if frontend wants to see it
         };
       }),
       pagination: createPagination(total, page, limit),
@@ -130,16 +144,16 @@ export const deleteCoupon = async (
   try {
     const { id } = req.params;
 
-    const coupon = await prisma.coupon.findUnique({ where: { id } });
+    const coupon = await prisma.productCoupon.findUnique({ where: { id } });
     if (!coupon) {
       return sendError(res, ErrorCodes.NOT_FOUND, 'Coupon not found', 404);
     }
 
-    if (coupon.status === 'USED') {
+    if (coupon.isRedeemed) {
       return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Cannot delete a used coupon', 400);
     }
 
-    await prisma.coupon.delete({ where: { id } });
+    await prisma.productCoupon.delete({ where: { id } });
     sendSuccess(res, undefined, 'Coupon deleted successfully');
   } catch (error) {
     next(error);
@@ -159,10 +173,10 @@ export const deleteCouponsBulk = async (
       return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Coupon IDs are required', 400);
     }
 
-    const result = await prisma.coupon.deleteMany({
+    const result = await prisma.productCoupon.deleteMany({
       where: {
         id: { in: ids },
-        status: 'UNUSED',
+        isRedeemed: false,
       },
     });
 
@@ -181,13 +195,9 @@ export const getCouponDetails = async (
   try {
     const { id } = req.params;
 
-    const coupon = await prisma.coupon.findUnique({
+    const coupon = await prisma.productCoupon.findUnique({
       where: { id },
       include: {
-        product: true,
-        campaign: {
-          include: { tiers: true },
-        },
         user: {
           select: {
             id: true,
@@ -198,8 +208,10 @@ export const getCouponDetails = async (
         },
         redemptions: {
           include: {
-            tier: true,
-            distributor: { select: { businessName: true } },
+            tier: {
+              include: { campaign: true }
+            },
+            // distributor: { select: { businessName: true } }, // if linked
           },
         },
       },
@@ -209,9 +221,124 @@ export const getCouponDetails = async (
       return sendError(res, ErrorCodes.NOT_FOUND, 'Coupon not found', 404);
     }
 
-    sendSuccess(res, coupon);
+    const redemption = coupon.redemptions?.[0];
+    const tier = redemption?.tier;
+    const user = (coupon as any).user;
+
+    sendSuccess(res, {
+      id: coupon.id,
+      code: coupon.serialNumber,
+      product: null,
+      campaign: tier?.campaign?.name || null,
+      batch_number: coupon.batchNumber,
+      status: coupon.isRedeemed ? 'USED' : 'UNUSED',
+      is_used: coupon.isRedeemed,
+      reward_type: tier?.rewardType || null,
+      reward_value: tier?.rewardValue ? Number(tier.rewardValue) : null,
+      used_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
+      redeemed_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
+      used_at: coupon.redeemedAt,
+      expiry_date: null,
+      created_at: coupon.createdAt,
+      auth_code: coupon.authCode,
+      scanned_at: null // or usage log?
+    });
   } catch (error) {
     next(error);
   }
 };
 
+// GET /api/v1/admin/coupons/batches
+export const listBatches = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    console.log('[AdminCoupons] Fetching batch inventory summary...');
+    // 1. Get unique batch numbers and their counts
+    const batchGroups = await prisma.productCoupon.groupBy({
+      by: ['batchNumber'],
+      _count: { id: true },
+      _min: { createdAt: true },
+    });
+
+    console.log(`[AdminCoupons] Found ${batchGroups.length} batch groups in DB.`);
+
+    // EXTRA SAFETY: If there are null batchNumber coupons but they weren't in groups (shouldn't happen but let's be safe)
+    const hasNullInGroups = batchGroups.some(g => g.batchNumber === null);
+    if (!hasNullInGroups) {
+      const nullCount = await prisma.productCoupon.count({ where: { batchNumber: null } });
+      if (nullCount > 0) {
+        console.log(`[AdminCoupons] Manually adding UNCATEGORIZED group for ${nullCount} items`);
+        const oldestNull = await prisma.productCoupon.findFirst({
+          where: { batchNumber: null },
+          orderBy: { createdAt: 'asc' },
+          select: { createdAt: true }
+        });
+        batchGroups.push({
+          batchNumber: null,
+          _count: { id: nullCount },
+          _min: { createdAt: oldestNull?.createdAt || new Date() }
+        });
+      }
+    }
+
+    // 2. Get redeemed counts for each batch in parallel
+    const batchDetails = await Promise.all(
+      batchGroups.map(async (group) => {
+        const batchName = group.batchNumber || 'UNCATEGORIZED';
+
+        const redeemedCount = await prisma.productCoupon.count({
+          where: {
+            batchNumber: group.batchNumber, // Works for null too
+            isRedeemed: true,
+          },
+        });
+
+        return {
+          batch_number: batchName,
+          total_count: group._count.id,
+          redeemed_count: redeemedCount,
+          created_at: group._min.createdAt || new Date(),
+        };
+      })
+    );
+
+    // Sort by date descending
+    batchDetails.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    console.log(`[AdminCoupons] Returning ${batchDetails.length} batches to frontend.`);
+    sendSuccess(res, batchDetails, 'Batches retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/v1/admin/coupons/batches/:batchNumber
+export const deleteBatch = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { batchNumber } = req.params;
+    const targetBatch = batchNumber === 'UNCATEGORIZED' ? null : batchNumber;
+
+    const redeemedCount = await prisma.productCoupon.count({
+      where: { batchNumber: targetBatch, isRedeemed: true },
+    });
+
+    if (redeemedCount > 0) {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Cannot delete batch with redeemed coupons', 400);
+    }
+
+    const result = await prisma.productCoupon.deleteMany({
+      where: { batchNumber: targetBatch },
+    });
+
+    sendSuccess(res, { deleted_count: result.count }, `Batch ${batchNumber} deleted successfully`);
+  } catch (error) {
+    next(error);
+  }
+};

@@ -65,6 +65,7 @@ model User {
   profileImageUrl String?          @map("profile_image_url")
   aiChatSessions  AiChatSession[]
   couponsUsed     Coupon[]
+  productCoupons  ProductCoupon[]
   fcmTokens       FcmToken[]
   notifications   Notification[]
   refreshTokens   RefreshToken[]
@@ -288,16 +289,34 @@ model Coupon {
   user        User?            @relation(fields: [usedBy], references: [id])
   redemptions ScanRedemption[]
 
-  @@index([code])
-  @@index([status])
   @@index([productId])
   @@map("coupons")
+}
+
+model ProductCoupon {
+  id            String    @id @default(uuid())
+  serialNumber  String    @unique @map("serial_number")
+  authCode      String    @map("auth_code")
+  batchNumber   String?   @map("batch_number")
+  isRedeemed    Boolean   @default(false) @map("is_redeemed")
+  redeemedAt    DateTime? @map("redeemed_at")
+  redeemedBy    String?   @map("redeemed_by")
+  couponId      String?   @map("coupon_id") // Optional link to Campaign/Coupon logic if needed later
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  user          User?     @relation(fields: [redeemedBy], references: [id])
+  redemptions   ScanRedemption[]
+
+  @@index([serialNumber])
+  @@map("product_coupons")
 }
 
 model ScanRedemption {
   id                      String           @id @default(uuid())
   userId                  String           @map("user_id")
-  couponId                String           @map("coupon_id")
+  couponId                String?          @map("coupon_id") // Made optional
+  productCouponId         String?          @map("product_coupon_id") // Added
   campaignTierId          String?          @map("campaign_tier_id")
   prizeType               RewardType       @map("prize_type")
   prizeValue              Decimal          @map("prize_value") @db.Decimal(10, 2)
@@ -309,12 +328,14 @@ model ScanRedemption {
   verifiedAt              DateTime?        @map("verified_at")
   claimedAt               DateTime?        @map("claimed_at")
   tier                    CampaignTier?    @relation(fields: [campaignTierId], references: [id])
-  coupon                  Coupon           @relation(fields: [couponId], references: [id])
+  coupon                  Coupon?          @relation(fields: [couponId], references: [id])
+  productCoupon           ProductCoupon?   @relation(fields: [productCouponId], references: [id])
   user                    User             @relation(fields: [userId], references: [id])
   distributor             Distributor?     @relation(fields: [verifiedByDistributorId], references: [id])
 
   @@index([userId])
   @@index([couponId])
+  @@index([productCouponId])
   @@map("scan_redemptions")
 }
 

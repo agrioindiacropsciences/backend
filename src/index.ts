@@ -8,6 +8,7 @@ import { rateLimiter } from './middleware/rateLimiter';
 import { apiRouter } from './routes';
 
 const app = express();
+console.log('--- ADMIN LOGIN SYNC: OPTIMIZING DB CONNECTION POOL ---');
 const PORT = process.env.PORT || 3000;
 
 // Serve static files
@@ -59,6 +60,7 @@ app.get('/health', (_req, res) => {
 });
 
 // API routes
+app.get('/api/debug-sync-check', (req, res) => res.json({ status: 'RELOADED_V3', time: new Date().toISOString() }));
 app.use('/api/v1', apiRouter);
 
 // 404 handler

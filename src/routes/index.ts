@@ -14,7 +14,9 @@ import configRoutes from './config.routes';
 import fcmRoutes from './fcm.routes';
 import adminRoutes from './admin';
 
-import scanRoutes from './scan.routes';
+
+
+import productCouponsRoutes from './product-coupons.routes';
 
 export const apiRouter = Router();
 
@@ -22,6 +24,7 @@ export const apiRouter = Router();
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/user', userRoutes);
 apiRouter.use('/users', userRoutes); // Alias for plural convenience
+apiRouter.use('/product-coupons', productCouponsRoutes);
 
 apiRouter.use('/crops', cropsRoutes); // Reload force
 apiRouter.use('/products', productsRoutes);
@@ -37,7 +40,7 @@ apiRouter.use('/fcm', fcmRoutes);
 apiRouter.use('/configs', configRoutes); // Plural alias
 apiRouter.use('/banners', configRoutes);
 apiRouter.use('/pages', supportRoutes);
-apiRouter.use('/scan', scanRoutes);
+
 
 // Admin Routes
 apiRouter.use('/admin', adminRoutes);

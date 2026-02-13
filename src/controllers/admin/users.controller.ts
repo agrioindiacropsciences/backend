@@ -160,7 +160,7 @@ export const getUserDetails = async (
       })),
       recent_redemptions: user.redemptions.map(r => ({
         id: r.id,
-        coupon_code: r.coupon.code,
+        coupon_code: r.coupon?.code || 'N/A',
         prize_type: r.prizeType,
         prize_value: Number(r.prizeValue),
         status: r.status,

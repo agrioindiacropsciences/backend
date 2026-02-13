@@ -412,7 +412,7 @@ export const getRewards = async (
 
       return {
         id: r.id,
-        coupon_code: r.coupon.code,
+        coupon_code: r.coupon?.code || 'N/A',
         prize: r.tier ? {
           id: r.tier.id,
           name: r.tier.rewardName,

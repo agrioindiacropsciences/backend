@@ -187,6 +187,19 @@ export const updateCampaignSchema = z.object({
   end_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   distribution_type: z.enum(['SEQUENTIAL', 'RANDOM']).optional(),
   is_active: z.boolean().optional(),
+  tiers: z.array(z.object({
+    id: z.string().optional(), // ID is optional for new tiers
+    tier_name: z.string().min(1).max(100),
+    reward_name: z.string().min(1).max(100),
+    reward_name_hi: z.string().max(100).optional(),
+    reward_type: z.enum(['CASHBACK', 'DISCOUNT', 'GIFT', 'POINTS']),
+    reward_value: z.number().min(0),
+    probability: z.number().min(0).max(1),
+    priority: z.number().int().default(0),
+    max_winners: z.number().int().positive().optional(),
+    current_winners: z.number().int().default(0).optional(),
+    image_url: z.string().optional(),
+  })).optional(),
 });
 
 // Type exports

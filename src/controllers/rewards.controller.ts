@@ -45,7 +45,7 @@ export const getRewardCertificate = async (
       certificate_data: {
         winner_name: redemption.user.fullName,
         phone_number: redemption.user.phoneNumber,
-        coupon_code: redemption.coupon.code,
+        coupon_code: redemption.coupon?.code || 'N/A',
         prize_name: redemption.tier?.rewardName || `${redemption.prizeType} ₹${redemption.prizeValue}`,
         prize_value: Number(redemption.prizeValue),
         prize_type: redemption.prizeType,

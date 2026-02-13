@@ -43,19 +43,28 @@ function getDatabaseUrl(): string {
 
 // Set DATABASE_URL in environment for Prisma (with connection pooling)
 let databaseUrl = getDatabaseUrl();
-// Add parameters if not present
+
+// Stronger enforcement of connection limits for dev/small tiers
+const limit = process.env.DB_CONNECTION_LIMIT || '2';
+const timeout = process.env.DB_POOL_TIMEOUT || '10';
+
 if (!databaseUrl.includes('connection_limit')) {
   const sep = databaseUrl.includes('?') ? '&' : '?';
-  databaseUrl += `${sep}connection_limit=10`;
+  databaseUrl += `${sep}connection_limit=${limit}`;
+} else {
+  // Override existing if it's too high
+  databaseUrl = databaseUrl.replace(/connection_limit=\d+/, `connection_limit=${limit}`);
 }
+
 if (!databaseUrl.includes('pool_timeout')) {
   const sep = databaseUrl.includes('?') ? '&' : '?';
-  databaseUrl += `${sep}pool_timeout=20`;
+  databaseUrl += `${sep}pool_timeout=${timeout}`;
 }
+
 process.env.DATABASE_URL = databaseUrl;
 
 export const prisma = global.prisma || new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: ['error'], // Reduced logging to save resources
 });
 
 // Handle connection errors

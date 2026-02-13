@@ -50,3 +50,21 @@ export const uploadPdf = multer({
         fileSize: 20 * 1024 * 1024, // 20MB
     },
 });
+
+export const uploadExcel = multer({
+    storage: multer.memoryStorage(),
+    fileFilter: (_req, file, cb) => {
+        if (
+            file.mimetype.includes('excel') ||
+            file.mimetype.includes('spreadsheetml') ||
+            file.originalname.match(/\.(xlsx|xls)$/)
+        ) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only Excel files (xlsx, xls) are allowed'));
+        }
+    },
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+    },
+});

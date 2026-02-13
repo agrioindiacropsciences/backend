@@ -11,7 +11,7 @@ export const getStats = async (
 ): Promise<void | Response> => {
   try {
     const period = (req.query.period as string) || '30days';
-    
+
     // Calculate date range
     let daysBack = 30;
     switch (period) {
@@ -71,19 +71,19 @@ export const getStats = async (
       },
     });
 
-    // Get scans per day
+    // Get scans per day - Fixed for PostgreSQL
     const scansPerDay = await prisma.$queryRaw<{ date: Date; value: number }[]>`
-      SELECT DATE(scanned_at) as date, COUNT(*) as value
+      SELECT scanned_at::date as date, COUNT(*)::integer as value
       FROM scan_redemptions
       WHERE scanned_at >= ${startDate}
-      GROUP BY DATE(scanned_at)
+      GROUP BY date
       ORDER BY date ASC
     `;
 
     // Get crop preferences distribution
     const cropPreferences = await prisma.userCrop.groupBy({
       by: ['cropId'],
-      _count: true,
+      _count: { cropId: true },
       orderBy: { _count: { cropId: 'desc' } },
       take: 10,
     });
@@ -98,7 +98,7 @@ export const getStats = async (
     const topStates = await prisma.user.groupBy({
       by: ['state'],
       where: { state: { not: null }, isActive: true },
-      _count: true,
+      _count: { state: true },
       orderBy: { _count: { state: 'desc' } },
       take: 10,
     });
@@ -117,16 +117,16 @@ export const getStats = async (
       total_distributors: totalDistributors,
       new_registrations_today: todayRegistrations,
       scans_per_day: scansPerDay.map(s => ({
-        date: s.date.toISOString().split('T')[0],
+        date: new Date(s.date).toISOString().split('T')[0],
         value: Number(s.value),
       })),
       crop_preferences: cropPreferences.map(c => ({
         name: cropMap.get(c.cropId) || c.cropId,
-        value: c._count,
+        value: c._count.cropId,
       })),
       top_states: topStates.map(s => ({
         state: s.state,
-        users: s._count,
+        users: s._count.state,
       })),
     });
   } catch (error) {

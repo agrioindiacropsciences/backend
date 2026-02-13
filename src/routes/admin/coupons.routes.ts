@@ -3,6 +3,13 @@ import * as couponsController from '../../controllers/admin/coupons.controller';
 import { requireRole } from '../../middleware/auth';
 
 const router = Router();
+console.log('[AdminRoutes] Registering priority route: /bulk/batches');
+
+// GET /api/v1/admin/coupons/bulk/batches
+router.get('/bulk/batches', requireRole('SUPER_ADMIN', 'ADMIN'), couponsController.listBatches);
+
+// DELETE /api/v1/admin/coupons/bulk/batches/:batchNumber
+router.delete('/bulk/batches/:batchNumber', requireRole('SUPER_ADMIN', 'ADMIN'), couponsController.deleteBatch);
 
 // GET /api/v1/admin/coupons
 router.get('/', couponsController.listCoupons);
