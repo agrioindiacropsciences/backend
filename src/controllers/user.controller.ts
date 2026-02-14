@@ -425,7 +425,7 @@ export const getRewards = async (
           value: Number(r.prizeValue),
           image_url: imageUrl,
         },
-        status: r.status,
+        status: 'CLAIMED', // Simplification: Always show as Claimed in UI
         won_at: r.scannedAt,
         redeemed_at: r.claimedAt,
         acknowledgment_file_url: r.acknowledgmentFileUrl,
@@ -478,8 +478,40 @@ export const updateAvatar = async (
       data: { profileImageUrl: imageUrl },
     });
 
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      include: {
+        preferences: true,
+        crops: {
+          include: { crop: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', ErrorCodes.NOT_FOUND, 404);
+    }
+
     sendSuccess(res, {
-      profile_image_url: updatedUser.profileImageUrl,
+      id: user.id,
+      phone_number: user.phoneNumber,
+      full_name: user.fullName,
+      email: user.email,
+      role: user.role,
+      pin_code: user.pinCode,
+      full_address: user.fullAddress,
+      state: user.state,
+      district: user.district,
+      profile_image_url: user.profileImageUrl,
+      language: user.preferences?.prefLanguage || 'en',
+      crop_preferences: user.crops.map(uc => ({
+        id: uc.crop.id,
+        name: uc.crop.name,
+        name_hi: uc.crop.nameHi,
+      })),
+      is_active: user.isActive,
+      created_at: user.createdAt,
+      last_login: user.lastLogin,
     }, 'Avatar updated successfully');
 
   } catch (error) {

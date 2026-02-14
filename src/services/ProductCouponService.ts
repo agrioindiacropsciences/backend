@@ -180,7 +180,7 @@ class ProductCouponService {
                         prizeType: wonTier.rewardType,
                         prizeValue: wonTier.rewardValue,
                         assignedRank: 0, // Not strictly used for random logic but required? schema says Int? optional
-                        status: 'PENDING_VERIFICATION', // Default status
+                        status: 'CLAIMED', // Default status
                     },
                 });
 
@@ -191,7 +191,7 @@ class ProductCouponService {
                         type: 'REWARD',
                         title: `Congratulations! You won ${wonTier.rewardName}`,
                         titleHi: wonTier.rewardNameHi ? `बधाई हो! आपने जीता ${wonTier.rewardNameHi}` : undefined,
-                        message: `Your reward of ₹${wonTier.rewardValue} is pending verification.`,
+                        message: `Your reward ${wonTier.rewardType === 'CASHBACK' ? 'of ₹' + wonTier.rewardValue : ''} has been successfully credited to your account.`,
                         data: { redemption_id: redemption.id },
                     },
                 });

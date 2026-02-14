@@ -68,6 +68,7 @@ export const listCampaigns = async (
           priority: t.priority,
           max_winners: t.maxWinners,
           current_winners: t.currentWinners,
+          image_url: t.imageUrl,
         })),
         created_at: c.createdAt,
         updated_at: c.updatedAt,
@@ -126,6 +127,7 @@ export const getCampaign = async (
         priority: t.priority,
         max_winners: t.maxWinners,
         current_winners: t.currentWinners,
+        image_url: t.imageUrl,
       })),
       created_at: campaign.createdAt,
       updated_at: campaign.updatedAt,
@@ -167,6 +169,7 @@ export const createCampaign = async (
         endDate,
         distributionType: data.distribution_type,
         isActive: data.is_active,
+        totalQrCodes: data.total_qr_codes || 0,
         tiers: {
           create: data.tiers.map(tier => ({
             tierName: tier.tier_name,
@@ -207,6 +210,8 @@ export const createCampaign = async (
         probability: Number(t.probability),
         priority: t.priority,
         max_winners: t.maxWinners,
+        current_winners: t.currentWinners,
+        image_url: t.imageUrl,
       })),
       created_at: campaign.createdAt,
     }, 'Campaign created successfully', 201);
@@ -234,6 +239,7 @@ export const updateCampaign = async (
     if (data.end_date !== undefined) updateData.endDate = new Date(data.end_date);
     if (data.distribution_type !== undefined) updateData.distributionType = data.distribution_type;
     if (data.is_active !== undefined) updateData.isActive = data.is_active;
+    if (data.total_qr_codes !== undefined) updateData.totalQrCodes = data.total_qr_codes;
 
     // Validate dates if both are being updated
     if (data.start_date && data.end_date) {
@@ -360,6 +366,8 @@ export const updateCampaign = async (
         probability: Number(t.probability),
         priority: t.priority,
         max_winners: t.maxWinners,
+        current_winners: t.currentWinners,
+        image_url: t.imageUrl,
       })),
       updated_at: campaign.updatedAt,
     }, 'Campaign updated successfully');

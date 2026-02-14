@@ -42,17 +42,30 @@ export const getNotifications = async (
     ]);
 
     sendSuccess(res, {
-      notifications: notifications.map(n => ({
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        title_hi: n.titleHi,
-        message: n.message,
-        message_hi: n.messageHi,
-        data: n.data,
-        is_read: n.isRead,
-        created_at: n.createdAt,
-      })),
+      notifications: notifications.map(n => {
+        let displayMessage = n.message;
+
+        // Fix: Remove "pending verification" and ₹0 logic
+        if (displayMessage.includes('pending verification')) {
+          if (displayMessage.includes('₹0')) {
+            displayMessage = 'Your reward has been successfully credited to your account.';
+          } else {
+            displayMessage = displayMessage.replace('is pending verification', 'has been successfully credited to your account');
+          }
+        }
+
+        return {
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          title_hi: n.titleHi,
+          message: displayMessage,
+          message_hi: n.messageHi,
+          data: n.data,
+          is_read: n.isRead,
+          created_at: n.createdAt,
+        };
+      }),
       unread_count: unreadCount,
       pagination: createPagination(total, page, limit),
     });
