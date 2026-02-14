@@ -166,6 +166,7 @@ export const createCampaignSchema = z.object({
   end_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   distribution_type: z.enum(['SEQUENTIAL', 'RANDOM']).default('RANDOM'),
   is_active: z.boolean().default(true),
+  total_qr_codes: z.number().int().min(1).optional(),
   tiers: z.array(z.object({
     tier_name: z.string().min(1).max(100),
     reward_name: z.string().min(1).max(100),
@@ -174,7 +175,7 @@ export const createCampaignSchema = z.object({
     reward_value: z.number().min(0),
     probability: z.number().min(0).max(1),
     priority: z.number().int().default(0),
-    max_winners: z.number().int().positive().optional(),
+    max_winners: z.number().int().min(0).optional(),
     image_url: z.string().optional(),
   }).refine((tier) => tier.reward_type !== 'GIFT' || (tier.image_url && tier.image_url.trim().length > 0), {
     message: 'Gift image URL is required when reward type is GIFT',
@@ -190,6 +191,7 @@ export const updateCampaignSchema = z.object({
   end_date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   distribution_type: z.enum(['SEQUENTIAL', 'RANDOM']).optional(),
   is_active: z.boolean().optional(),
+  total_qr_codes: z.number().int().min(1).optional(),
   tiers: z.array(z.object({
     id: z.string().optional(), // ID is optional for new tiers
     tier_name: z.string().min(1).max(100),
@@ -199,7 +201,7 @@ export const updateCampaignSchema = z.object({
     reward_value: z.number().min(0),
     probability: z.number().min(0).max(1),
     priority: z.number().int().default(0),
-    max_winners: z.number().int().positive().optional(),
+    max_winners: z.number().int().min(0).optional(),
     current_winners: z.number().int().default(0).optional(),
     image_url: z.string().optional(),
   })).optional(),
