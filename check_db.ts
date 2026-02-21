@@ -9,6 +9,7 @@ async function main() {
         include: {
             user: { select: { phoneNumber: true } },
             coupon: { select: { code: true } },
+            productCoupon: { select: { serialNumber: true } },
             tier: { select: { rewardName: true } }
         },
         orderBy: { scannedAt: 'desc' },
@@ -19,7 +20,7 @@ async function main() {
         console.log('No redemptions found in database.');
     } else {
         redemptions.forEach(r => {
-            console.log(`User: ${r.user.phoneNumber}, Code: ${r.coupon.code}, Prize: ${r.tier?.rewardName || r.prizeType}, Status: ${r.status}, Date: ${r.scannedAt}`);
+            console.log(`User: ${r.user.phoneNumber}, Code: ${r.coupon?.code || r.productCoupon?.serialNumber}, Prize: ${r.tier?.rewardName || r.prizeType}, Status: ${r.status}, Date: ${r.scannedAt}`);
         });
     }
 

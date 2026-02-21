@@ -39,6 +39,9 @@ router.get('/coupons', userController.getCouponHistory);
 // GET /api/v1/user/rewards
 router.get('/rewards', userController.getRewards);
 
+// POST /api/v1/user/rewards/:id/scratch
+router.post('/rewards/:id/scratch', userController.scratchReward);
+
 // GET /api/v1/user/account/deletion-info - Account deletion information (for Play Store)
 router.get('/account/deletion-info', userController.getAccountDeletionInfo);
 

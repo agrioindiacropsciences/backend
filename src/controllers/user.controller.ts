@@ -435,6 +435,7 @@ export const getRewards = async (
         } : null,
         product_name: r.coupon?.product?.name || r.coupon?.product?.nameHi || 'Agrio Product',
         reward_image_url: imageUrl,
+        is_scratched: r.isScratched,
       };
     });
 
@@ -651,3 +652,36 @@ export const getAccountDeletionInfo = async (
   }
 };
 
+// POST /api/v1/user/rewards/:id/scratch
+export const scratchReward = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void | Response> => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId!;
+
+    const redemption = await prisma.scanRedemption.findUnique({
+      where: { id },
+    });
+
+    if (!redemption || redemption.userId !== userId) {
+      throw new AppError('Reward not found', ErrorCodes.NOT_FOUND, 404);
+    }
+
+    if (redemption.isScratched) {
+      sendSuccess(res, { is_scratched: true }, 'Already scratched');
+      return;
+    }
+
+    const updated = await prisma.scanRedemption.update({
+      where: { id },
+      data: { isScratched: true },
+    });
+
+    sendSuccess(res, { is_scratched: updated.isScratched }, 'Reward marked as scratched');
+  } catch (error) {
+    next(error);
+  }
+};

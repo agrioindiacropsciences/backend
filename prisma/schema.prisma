@@ -322,6 +322,7 @@ model ScanRedemption {
   prizeValue              Decimal          @map("prize_value") @db.Decimal(10, 2)
   assignedRank            Int?             @map("assigned_rank")
   status                  RedemptionStatus @default(PENDING_VERIFICATION)
+  isScratched             Boolean          @default(false) @map("is_scratched")
   verifiedByDistributorId String?          @map("verified_by_distributor_id")
   acknowledgmentFileUrl   String?          @map("acknowledgment_file_url")
   scannedAt               DateTime         @default(now()) @map("scanned_at")
