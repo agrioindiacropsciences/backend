@@ -135,7 +135,7 @@ async function main() {
 
   for (const product of products) {
     const { packSizes, ...productData } = product;
-    
+
     const created = await prisma.product.upsert({
       where: { slug: product.slug },
       update: {},
@@ -208,8 +208,82 @@ async function main() {
       slug: 'privacy-policy',
       title: 'Privacy Policy',
       titleHi: 'गोपनीयता नीति',
-      content: '<h1>Privacy Policy</h1><p>Your privacy is important to us. This policy explains how we collect and use your data...</p>',
-      contentHi: '<h1>गोपनीयता नीति</h1><p>आपकी गोपनीयता हमारे लिए महत्वपूर्ण है। यह नीति बताती है कि हम आपके डेटा को कैसे एकत्र और उपयोग करते हैं...</p>',
+      content: `
+<div class="space-y-6">
+  <h2 class="text-2xl font-bold">1. Introduction</h2>
+  <p>Welcome to Agrio India Crop Sciences. This Privacy Policy outlines how we collect, use, and protect your personal information when you use our website, mobile application, and services.</p>
+
+  <h2 class="text-2xl font-bold">2. Information We Collect</h2>
+  <p>We collect information to provide better agricultural solutions to you:</p>
+  <ul class="list-disc pl-5">
+    <li><strong>Personal Information:</strong> Name, phone number, email address, physical address, and pin code.</li>
+    <li><strong>Farm Data:</strong> Details about your crops and farming preferences.</li>
+    <li><strong>Device & Usage Data:</strong> Device identifiers (FCM tokens), app usage statistics, and interaction logs.</li>
+    <li><strong>Location Data:</strong> Based on your pin code to connect you with nearby distributors.</li>
+  </ul>
+
+  <h2 class="text-2xl font-bold">3. How We Use Your Information</h2>
+  <p>Your information is used for the following purposes:</p>
+  <ul class="list-disc pl-5">
+    <li>To provide and improve our products and services.</li>
+    <li>To manage your account, coupons, and reward redemptions.</li>
+    <li>To connect you with local authorized dealers and distributors.</li>
+    <li>To send important notifications via push notifications, SMS, or email.</li>
+    <li>To provide customer support and respond to your inquiries.</li>
+  </ul>
+
+  <h2 class="text-2xl font-bold">4. Information Sharing</h2>
+  <p>We do not sell your personal data. We may share necessary information with authorized dealers for verifying and processing reward claims, or when required by law to comply with legal obligations.</p>
+
+  <h2 class="text-2xl font-bold">5. Security of Your Data</h2>
+  <p>We implement appropriate technical and organizational security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.</p>
+
+  <h2 class="text-2xl font-bold">6. Your Rights & Account Deletion</h2>
+  <p>You have the right to access, update, or delete your personal information. You can request account deletion directly through our mobile application's settings or by contacting our support team. Upon account deletion, your personal data will be securely removed from our systems.</p>
+
+  <h2 class="text-2xl font-bold">7. Contact Us</h2>
+  <p>If you have any questions or concerns about this Privacy Policy, please contact us at:</p>
+  <p>Email: support@agrioindia.com<br>Phone: +91 1800 123 4567</p>
+</div>
+`,
+      contentHi: `
+<div class="space-y-6">
+  <h2 class="text-2xl font-bold">1. परिचय</h2>
+  <p>एग्रियो इंडिया क्रॉप साइंसेज मेंাপন্ন आपका स्वागत है। यह गोपनीयता नीति बताती है कि जब आप हमारी वेबसाइट, मोबाइल एप्लिकेशन और सेवाओं का उपयोग करते हैं तो हम आपकी व्यक्तिगत जानकारी कैसे एकत्र, उपयोग और सुरक्षित करते हैं।</p>
+
+  <h2 class="text-2xl font-bold">2. हम कौन सी जानकारी एकत्र करते हैं</h2>
+  <p>हम आपको बेहतर कृषि समाधान प्रदान करने के लिए जानकारी एकत्र करते हैं:</p>
+  <ul class="list-disc pl-5">
+    <li><strong>व्यक्तिगत जानकारी:</strong> नाम, फोन नंबर, ईमेल पता, भौतिक पता और पिन कोड।</li>
+    <li><strong>फार्म डेटा:</strong> आपकी फसलों और खेती की प्राथमिकताओं के बारे में विवरण।</li>
+    <li><strong>डिवाइस और उपयोग डेटा:</strong> डिवाइस पहचानकर्ता (FCM टोकन), ऐप उपयोग आंकड़े और इंटरैक्शन लॉग।</li>
+    <li><strong>स्थान डेटा:</strong> आपको आस-पास के वितरकों से जोड़ने के लिए आपके पिन कोड के आधार पर।</li>
+  </ul>
+
+  <h2 class="text-2xl font-bold">3. हम आपकी जानकारी का उपयोग कैसे करते हैं</h2>
+  <p>आपकी जानकारी का उपयोग निम्नलिखित उद्देश्यों के लिए किया जाता है:</p>
+  <ul class="list-disc pl-5">
+    <li>हमारे उत्पादों और सेवाओं को प्रदान करने और बेहतर बनाने के लिए।</li>
+    <li>आपके खाते, कूपन और इनाम मोचन (रिडेम्प्शन) को प्रबंधित करने के लिए।</li>
+    <li>आपको स्थानीय अधिकृत डीलरों और वितरकों से जोड़ने के लिए।</li>
+    <li>पुश नोटिफिकेशन, एसएमएस या ईमेल के माध्यम से महत्वपूर्ण सूचनाएं भेजने के लिए।</li>
+    <li>ग्राहक सहायता प्रदान करने और आपकी पूछताछ का उत्तर देने के लिए।</li>
+  </ul>
+
+  <h2 class="text-2xl font-bold">4. जानकारी साझा करना</h2>
+  <p>हम आपका व्यक्तिगत डेटा नहीं बेचते हैं। हम इनाम दावों को सत्यापित करने और संसाधित करने के लिए अधिकृत डीलरों के साथ आवश्यक जानकारी साझा कर सकते हैं, या जब कानूनी दायित्वों का पालन करने के लिए कानून द्वारा आवश्यक हो।</p>
+
+  <h2 class="text-2xl font-bold">5. आपके डेटा की सुरक्षा</h2>
+  <p>हम आपकी व्यक्तिगत जानकारी को अनधिकृत पहुंच, परिवर्तन, प्रकटीकरण या विनाश से बचाने के लिए उचित तकनीकी और संगठनात्मक सुरक्षा उपाय लागू करते हैं।</p>
+
+  <h2 class="text-2xl font-bold">6. आपके अधिकार और खाता हटाना</h2>
+  <p>आपको अपनी व्यक्तिगत जानकारी तक पहुंचने, अपडेट करने या हटाने का अधिकार है। आप सीधे हमारे मोबाइल एप्लिकेशन की सेटिंग के माध्यम से या हमारी सहायता टीम से संपर्क करके खाता हटाने का अनुरोध कर सकते हैं। खाता हटाए जाने पर, आपका व्यक्तिगत डेटा हमारे सिस्टम से सुरक्षित रूप से हटा दिया जाएगा।</p>
+
+  <h2 class="text-2xl font-bold">7. हमसे संपर्क करें</h2>
+  <p>यदि इस गोपनीयता नीति के बारे में आपके कोई प्रश्न या चिंताएं हैं, तो कृपया हमसे संपर्क करें:</p>
+  <p>ईमेल: support@agrioindia.com<br>फोन: +91 1800 123 4567</p>
+</div>
+`,
     },
     {
       slug: 'about',
