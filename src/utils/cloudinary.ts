@@ -33,3 +33,23 @@ export const deleteFromCloudinary = async (public_id: string) => {
         throw error;
     }
 };
+export const uploadBufferToCloudinary = async (buffer: Buffer, folder: string = 'agrio_india', filename?: string) => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder: folder,
+                public_id: filename,
+                resource_type: 'auto', // Use auto to detect PDF correctly
+                format: 'pdf',
+            },
+            (error, result) => {
+                if (error) return reject(error);
+                resolve({
+                    public_id: result?.public_id,
+                    url: result?.secure_url,
+                });
+            }
+        );
+        uploadStream.end(buffer);
+    });
+};

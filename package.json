@@ -38,6 +38,7 @@
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.1",
@@ -46,8 +47,11 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
+    "pdf-creator-node": "^2.3.5",
     "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.17.2",
     "prisma": "^5.22.0",
+    "qrcode": "^1.5.4",
     "tsx": "^4.19.2",
     "twilio": "^5.11.2",
     "typescript": "^5.6.3",
@@ -60,6 +64,8 @@
   },
   "devDependencies": {
     "@types/pdf-parse": "^1.1.5",
+    "@types/pdfkit": "^0.17.5",
+    "@types/qrcode": "^1.5.6",
     "@types/xlsx": "^0.0.35"
   }
 }

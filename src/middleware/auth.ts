@@ -11,8 +11,15 @@ export const authenticate = async (
 ): Promise<void | Response> => {
   try {
     const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token = '';
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+      token = req.query.token as string;
+    }
+
+    if (!token) {
       return sendError(
         res,
         ErrorCodes.UNAUTHORIZED,
@@ -21,7 +28,6 @@ export const authenticate = async (
       );
     }
 
-    const token = authHeader.split(' ')[1];
     const payload = verifyAccessToken(token);
 
     if (payload.type !== 'access') {
@@ -75,7 +81,7 @@ export const optionalAuth = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const payload = verifyAccessToken(token);
@@ -104,7 +110,7 @@ export const adminAuth = async (
 ): Promise<void | Response> => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return sendError(
         res,

@@ -10,5 +10,8 @@ router.use(authenticate);
 // GET /api/v1/rewards/:id/certificate
 router.get('/:id/certificate', rewardsController.getRewardCertificate);
 
+// GET /api/v1/rewards/:id/certificate/pdf
+router.get('/:id/certificate/pdf', rewardsController.getRewardCertificatePdf);
+
 export default router;
 

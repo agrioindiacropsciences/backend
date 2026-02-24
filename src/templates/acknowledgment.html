@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+        .container {
+            width: 100%;
+            height: 100%;
+            padding: 50px;
+            box-sizing: border-box;
+            border: 20px solid #16a34a;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            width: 150px;
+            margin-bottom: 20px;
+        }
+        .title {
+            color: #16a34a;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .divider {
+            height: 2px;
+            background: #eee;
+            margin: 30px 0;
+        }
+        .grid {
+            margin-bottom: 40px;
+        }
+        .section-header {
+            background: #f8f9fa;
+            padding: 8px 15px;
+            color: #16a34a;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            border-left: 4px solid #16a34a;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 0 15px;
+        }
+        .label {
+            color: #666;
+            font-size: 14px;
+        }
+        .value {
+            color: #000;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: right;
+        }
+        .prize-image-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .prize-image {
+            max-width: 200px;
+            max-height: 150px;
+            object-fit: contain;
+        }
+        .footer {
+            margin-top: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .signature-box {
+            text-align: center;
+            width: 200px;
+        }
+        .signature-line {
+            border-top: 1px solid #ccc;
+            margin-bottom: 5px;
+        }
+        .signature-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .qr-section {
+            text-align: center;
+            margin-top: 40px;
+        }
+        .qr-code {
+            width: 120px;
+            margin-bottom: 10px;
+        }
+        .verification-text {
+            font-size: 10px;
+            color: #999;
+            font-style: italic;
+        }
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 150px;
+            color: rgba(22, 163, 74, 0.05);
+            font-weight: bold;
+            z-index: -1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="watermark">VERIFIED</div>
+        
+        <div class="header">
+            {{#if logoUrl}}
+            <img src="{{logoUrl}}" class="logo">
+            {{else}}
+            <h1 style="color: #16a34a; margin: 0;">AGRIO INDIA</h1>
+            {{/if}}
+            <p class="title">CERTIFICATE OF WINNING</p>
+            <p class="subtitle">Agrio India Crop Science</p>
+        </div>
+
+        <div class="divider"></div>
+
+        {{#if rewardImageUrl}}
+        <div class="prize-image-container">
+            <img src="{{rewardImageUrl}}" class="prize-image">
+        </div>
+        {{/if}}
+
+        <div class="grid">
+            <div class="section-header">User Details</div>
+            <div class="row">
+                <span class="label">Winner Name</span>
+                <span class="value">{{winner_name}}</span>
+            </div>
+            <div class="row">
+                <span class="label">Phone Number</span>
+                <span class="value">{{phone_number}}</span>
+            </div>
+            <div class="row">
+                <span class="label">Address</span>
+                <span class="value">{{full_address}}</span>
+            </div>
+
+            <div class="section-header" style="margin-top: 20px;">Prize Details</div>
+            <div class="row">
+                <span class="label">Reward Item</span>
+                <span class="value">{{prize_name}}</span>
+            </div>
+            <div class="row">
+                <span class="label">Coupon Code</span>
+                <span class="value" style="font-family: monospace;">{{coupon_code}}</span>
+            </div>
+            {{#if serial_number}}
+            <div class="row">
+                <span class="label">Serial Number</span>
+                <span class="value">{{serial_number}}</span>
+            </div>
+            {{/if}}
+            <div class="row">
+                <span class="label">Scan Date</span>
+                <span class="value">{{won_date}}</span>
+            </div>
+            <div class="row">
+                <span class="label">Rank</span>
+                <span class="value">#{{rank}}</span>
+            </div>
+
+            <div class="section-header" style="margin-top: 20px;">Distributor Verification</div>
+            <div class="row">
+                <span class="label">Distributor</span>
+                <span class="value">{{distributor_name}}</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Authorized Stamp</div>
+            </div>
+            <div class="qr-section">
+                <img src="{{qrCodeUrl}}" class="qr-code">
+                <p class="verification-text">Scan to verify authenticity</p>
+            </div>
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Customer Signature</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
