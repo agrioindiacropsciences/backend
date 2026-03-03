@@ -80,10 +80,15 @@ class ProductCouponService {
      * Verify and Claim Coupon
      */
     async verifyAndClaim(serialNumber: string, authCode: string, userId: string) {
+        // Safety: Never process without a valid userId
+        if (!userId || userId.trim().length === 0) {
+            throw new AppError('User authentication required', ErrorCodes.UNAUTHORIZED, 401);
+        }
+
         const cleanSerial = serialNumber.trim();
         const cleanAuth = authCode.trim();
 
-        console.log(`[ProductCoupon] Verifying claim for serial: '${cleanSerial}' (raw: '${serialNumber}')`);
+        console.log(`[ProductCoupon] Verifying claim for serial: '${cleanSerial}' by user: '${userId}'`);
 
         // 1. Validate Code
         const coupon = await prisma.productCoupon.findUnique({
