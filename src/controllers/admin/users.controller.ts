@@ -83,6 +83,7 @@ export const listUsers = async (
         state: user.state,
         district: user.district,
         location: user.district && user.state ? `${user.district}, ${user.state}` : null,
+        profile_image_url: user.profileImageUrl,
         crops: user.crops.map(c => c.crop.name),
         total_scans: user._count.redemptions,
         status: !user.isActive ? 'Suspended' : user.fullName ? 'Active' : 'Pending',
@@ -118,9 +119,10 @@ export const getUserDetails = async (
           include: {
             coupon: true,
             tier: true,
+            productCoupon: true,
           },
           orderBy: { scannedAt: 'desc' },
-          take: 10,
+          take: 20,
         },
         _count: {
           select: { redemptions: true },
@@ -148,6 +150,7 @@ export const getUserDetails = async (
       full_address: user.fullAddress,
       state: user.state,
       district: user.district,
+      profile_image_url: user.profileImageUrl,
       language: user.preferences?.prefLanguage || 'en',
       is_active: user.isActive,
       created_at: user.createdAt,
@@ -160,11 +163,12 @@ export const getUserDetails = async (
       })),
       recent_redemptions: user.redemptions.map(r => ({
         id: r.id,
-        coupon_code: r.coupon?.code || 'N/A',
+        coupon_code: r.coupon?.code || r.productCoupon?.serialNumber || 'N/A',
         prize_type: r.prizeType,
         prize_value: Number(r.prizeValue),
         status: r.status,
         scanned_at: r.scannedAt,
+        tier_name: r.tier?.rewardName || null,
       })),
     });
   } catch (error) {

@@ -54,9 +54,9 @@ export const calculateDistance = (
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c * 10) / 10; // Round to 1 decimal
 };
@@ -108,5 +108,6 @@ export const createPagination = (
   page,
   limit,
   total_pages: Math.ceil(total / limit),
+  totalPages: Math.ceil(total / limit),
 });
 
