@@ -9,8 +9,8 @@ const router = Router();
 router.use(requireRole('SUPER_ADMIN', 'ADMIN'));
 
 router.get('/', bannersController.getAllBanners);
-router.post('/', upload.single('image'), bannersController.createBanner);
-router.put('/:id', upload.single('image'), bannersController.updateBanner);
+router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'imageHi', maxCount: 1 }]), bannersController.createBanner);
+router.put('/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'imageHi', maxCount: 1 }]), bannersController.updateBanner);
 router.delete('/:id', bannersController.deleteBanner);
 
 export default router;

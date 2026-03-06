@@ -68,9 +68,17 @@ export const createBanner = async (
         const endDate = raw.endDate || raw.end_date;
         const isActive = parseBool(raw.isActive ?? raw.is_active ?? true);
 
-        if (req.file?.path) {
-            const result = await uploadToCloudinary(req.file.path, 'banners');
-            imageUrl = result.url;
+        const imagesData: Record<string, string> = {};
+        if (req.files && !Array.isArray(req.files)) {
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            if (files['image']?.[0]) {
+                const result = await uploadToCloudinary(files['image'][0].path, 'banners');
+                imageUrl = result.url;
+            }
+            if (files['imageHi']?.[0]) {
+                const result = await uploadToCloudinary(files['imageHi'][0].path, 'banners');
+                imagesData.imageUrlHi = result.url;
+            }
         }
 
         if (!imageUrl) {
@@ -81,7 +89,7 @@ export const createBanner = async (
             data: {
                 section,
                 imageUrl,
-                imageUrlHi,
+                imageUrlHi: imagesData.imageUrlHi || imageUrlHi,
                 title,
                 linkType,
                 linkValue,
@@ -121,13 +129,30 @@ export const updateBanner = async (
         const raw = req.body;
 
         const data: Record<string, unknown> = {};
-        if (req.file?.path) {
-            const result = await uploadToCloudinary(req.file.path, 'banners');
-            data.imageUrl = result.url;
-        } else if (raw.imageUrl !== undefined) data.imageUrl = raw.imageUrl;
+
+        if (req.files && !Array.isArray(req.files)) {
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            if (files['image']?.[0]) {
+                const result = await uploadToCloudinary(files['image'][0].path, 'banners');
+                data.imageUrl = result.url;
+            }
+            if (files['imageHi']?.[0]) {
+                const result = await uploadToCloudinary(files['imageHi'][0].path, 'banners');
+                data.imageUrlHi = result.url;
+            }
+        }
+
+        if (raw.imageUrl !== undefined) data.imageUrl = raw.imageUrl;
         else if (raw.image_url !== undefined) data.imageUrl = raw.image_url;
+
         if (raw.imageUrlHi !== undefined) data.imageUrlHi = raw.imageUrlHi;
         else if (raw.image_url_hi !== undefined) data.imageUrlHi = raw.image_url_hi;
+
+        // Explicitly allow clearing Hindi image if they send empty string or 'null'
+        if (raw.clearImageHi === 'true') {
+            data.imageUrlHi = null;
+        }
+
         if (raw.title !== undefined) data.title = raw.title;
         if (raw.linkType !== undefined || raw.link_type !== undefined) {
             const lt = String(raw.linkType ?? raw.link_type ?? 'NONE').toUpperCase();
