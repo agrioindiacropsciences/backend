@@ -108,8 +108,18 @@ export class NotificationService {
             // Send to English topic
             const enMessage = {
                 notification: { title, body, ...(imageUrl && { image: imageUrl }) },
-                android: { notification: { image: imageUrl, channelId: 'high_importance_channel', sound: 'default', clickAction: 'FLUTTER_NOTIFICATION_CLICK' } },
-                apns: { payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } }, fcm_options: { image: imageUrl } },
+                android: {
+                    notification: {
+                        image: imageUrl,
+                        channelId: 'high_importance_channel',
+                        sound: 'default',
+                        clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+                    }
+                },
+                apns: {
+                    payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } },
+                    fcm_options: { image: imageUrl }
+                },
                 data: dataPayload,
                 topic: `${topic}_en`,
             };
@@ -121,27 +131,53 @@ export class NotificationService {
                     body: String(messageHi || body),
                     ...(imageUrl && { image: imageUrl })
                 },
-                android: { notification: { image: imageUrl, channelId: 'high_importance_channel', sound: 'default', clickAction: 'FLUTTER_NOTIFICATION_CLICK' } },
-                apns: { payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } }, fcm_options: { image: imageUrl } },
+                android: {
+                    notification: {
+                        image: imageUrl,
+                        channelId: 'high_importance_channel',
+                        sound: 'default',
+                        clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+                    }
+                },
+                apns: {
+                    payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } },
+                    fcm_options: { image: imageUrl }
+                },
                 data: dataPayload,
                 topic: `${topic}_hi`,
             };
 
-            // Also send to the base topic for legacy clients or other platforms
+            // Send to legacy clients that only have the base topic 
+            // (not subscribed to _en or _hi) to prevent double notification
             const baseMessage = {
                 notification: { title, body, ...(imageUrl && { image: imageUrl }) },
+                android: {
+                    notification: {
+                        image: imageUrl,
+                        channelId: 'high_importance_channel',
+                        sound: 'default',
+                        clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+                    }
+                },
+                apns: {
+                    payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } },
+                    fcm_options: { image: imageUrl }
+                },
                 data: dataPayload,
-                topic: topic,
+                condition: `'${topic}' in topics && !('${topic}_en' in topics) && !('${topic}_hi' in topics)`,
             };
 
             const [enRes, hiRes, baseRes] = await Promise.all([
                 messaging.send(enMessage),
                 messaging.send(hiMessage),
-                messaging.send(baseMessage)
+                messaging.send(baseMessage).catch(e => {
+                    console.log(`Failed to send condition message for legacy clients: ${e.message}`);
+                    return null;
+                })
             ]);
 
-            console.log('Successfully sent localized messages to topics');
-            response = baseRes;
+            console.log('Successfully sent localized messages to specialized topics and legacy clients');
+            response = enRes || baseRes; // Return one of them
         } else {
             const message = {
                 notification: {
@@ -187,14 +223,19 @@ export class NotificationService {
             console.log('Successfully sent message to topic:', response);
         }
 
-        // If topic is all_users, save notification for all active users in the database
-        if (topic === 'all_users') {
+        // IMPORTANT: Save notification for users in the database history
+        // If topic is all_users, farmers, or dealers, we save for all matching users
+        if (['all_users', 'farmers', 'dealers'].includes(topic)) {
+            const where: any = { isActive: true };
+            if (topic === 'farmers') where.role = 'FARMER';
+            if (topic === 'dealers') where.role = 'DEALER';
+
             const users = await prisma.user.findMany({
-                where: { isActive: true },
+                where,
                 select: { id: true }
             });
 
-            console.log(`Saving notification for ${users.length} users in database...`);
+            console.log(`Saving notification for ${users.length} users in database (topic: ${topic})...`);
 
             const notificationData = users.map(user => ({
                 userId: user.id,
@@ -207,8 +248,10 @@ export class NotificationService {
                 isRead: false
             }));
 
+            // Using createMany for performance
             await prisma.notification.createMany({
-                data: notificationData
+                data: notificationData,
+                skipDuplicates: true
             });
         }
 
