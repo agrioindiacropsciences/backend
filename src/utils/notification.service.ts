@@ -94,6 +94,142 @@ export class NotificationService {
         }
         if (imageUrl) dataPayload.imageUrl = String(imageUrl);
 
+        // Logic for localized background notifications
+        const titleHi = data?.titleHi;
+        const messageHi = data?.messageHi;
+
+        // If it's a "standard" topic that we support suffixes for and has Hindi content
+        const supportsLocalization = ['all_users', 'debug_users', 'farmers', 'dealers'].includes(topic);
+
+        let response: any;
+        if (supportsLocalization && (titleHi || messageHi)) {
+            console.log(`Sending localized messages to ${topic}_en and ${topic}_hi...`);
+
+            // Send to English topic
+            const enMessage = {
+                notification: { title, body, ...(imageUrl && { image: imageUrl }) },
+                android: { notification: { image: imageUrl, channelId: 'high_importance_channel', sound: 'default', clickAction: 'FLUTTER_NOTIFICATION_CLICK' } },
+                apns: { payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } }, fcm_options: { image: imageUrl } },
+                data: dataPayload,
+                topic: `${topic}_en`,
+            };
+
+            // Send to Hindi topic
+            const hiMessage = {
+                notification: {
+                    title: String(titleHi || title),
+                    body: String(messageHi || body),
+                    ...(imageUrl && { image: imageUrl })
+                },
+                android: { notification: { image: imageUrl, channelId: 'high_importance_channel', sound: 'default', clickAction: 'FLUTTER_NOTIFICATION_CLICK' } },
+                apns: { payload: { aps: { 'mutable-content': 1, sound: 'default', badge: 1 } }, fcm_options: { image: imageUrl } },
+                data: dataPayload,
+                topic: `${topic}_hi`,
+            };
+
+            // Also send to the base topic for legacy clients or other platforms
+            const baseMessage = {
+                notification: { title, body, ...(imageUrl && { image: imageUrl }) },
+                data: dataPayload,
+                topic: topic,
+            };
+
+            const [enRes, hiRes, baseRes] = await Promise.all([
+                messaging.send(enMessage),
+                messaging.send(hiMessage),
+                messaging.send(baseMessage)
+            ]);
+
+            console.log('Successfully sent localized messages to topics');
+            response = baseRes;
+        } else {
+            const message = {
+                notification: {
+                    title,
+                    body,
+                    ...(imageUrl && { image: imageUrl }),
+                },
+                android: {
+                    priority: 'high' as const,
+                    notification: {
+                        image: imageUrl,
+                        channelId: 'high_importance_channel',
+                        sound: 'default',
+                        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+                    },
+                },
+                apns: {
+                    headers: {
+                        'apns-priority': '10',
+                    },
+                    payload: {
+                        aps: {
+                            'mutable-content': 1,
+                            sound: 'default',
+                            badge: 1,
+                        },
+                    },
+                    fcm_options: {
+                        image: imageUrl,
+                    },
+                },
+                webpush: {
+                    notification: {
+                        icon: imageUrl || '/assets/logo/logo.png',
+                        badge: '/assets/logo/logo.png',
+                    },
+                },
+                data: dataPayload,
+                topic: topic,
+            };
+
+            response = await messaging.send(message);
+            console.log('Successfully sent message to topic:', response);
+        }
+
+        // If topic is all_users, save notification for all active users in the database
+        if (topic === 'all_users') {
+            const users = await prisma.user.findMany({
+                where: { isActive: true },
+                select: { id: true }
+            });
+
+            console.log(`Saving notification for ${users.length} users in database...`);
+
+            const notificationData = users.map(user => ({
+                userId: user.id,
+                type: this.validateType(data?.type),
+                title,
+                titleHi: data?.titleHi || null,
+                message: body,
+                messageHi: data?.messageHi || null,
+                data: { ...(data || {}), imageUrl },
+                isRead: false
+            }));
+
+            await prisma.notification.createMany({
+                data: notificationData
+            });
+        }
+
+        return response;
+    }
+
+    /**
+     * Send notification to an array of FCM tokens (multicast)
+     */
+    static async sendMulticast(tokens: string[], title: string, body: string, imageUrl?: string, data?: any, userIds?: string[]) {
+        if (!tokens || tokens.length === 0) return { successCount: 0, failureCount: 0, responses: [] };
+
+        // Convert all data values to strings (FCM requirement)
+        const dataPayload: Record<string, string> = {};
+        if (data) {
+            Object.keys(data).forEach(key => {
+                dataPayload[key] = String(data[key] || '');
+            });
+        }
+        if (imageUrl) dataPayload.imageUrl = String(imageUrl);
+
         const message = {
             notification: {
                 title,
@@ -131,24 +267,42 @@ export class NotificationService {
                 },
             },
             data: dataPayload,
-            topic: topic,
         };
 
-        try {
-            const response = await messaging.send(message);
-            console.log('Successfully sent message to topic:', response);
+        // Firebase limit for sendEachForMulticast is 500 tokens per batch
+        const BATCH_SIZE = 500;
+        let successCount = 0;
+        let failureCount = 0;
+        const allResponses = [];
 
-            // If topic is all_users, save notification for all active users in the database
-            if (topic === 'all_users') {
-                const users = await prisma.user.findMany({
-                    where: { isActive: true },
-                    select: { id: true }
+        for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+            const tokenBatch = tokens.slice(i, i + BATCH_SIZE);
+            try {
+                const response = await messaging.sendEachForMulticast({
+                    ...message,
+                    tokens: tokenBatch
                 });
+                successCount += response.successCount;
+                failureCount += response.failureCount;
+                allResponses.push(...response.responses);
+            } catch (error) {
+                console.error('Error sending multicast batch:', error);
+                throw error; // Or handle silently depending on preferences
+            }
+        }
 
-                console.log(`Saving notification for ${users.length} users in database...`);
+        console.log(`Multicast complete. Success: ${successCount}, Failures: ${failureCount}`);
 
-                const notificationData = users.map(user => ({
-                    userId: user.id,
+        // Save notifications for users if userIds are provided
+        if (userIds && userIds.length > 0) {
+            console.log(`Saving notification for ${userIds.length} users in database...`);
+
+            // Chunk DB inserts as well for safety
+            const DB_BATCH_SIZE = 1000;
+            for (let i = 0; i < userIds.length; i += DB_BATCH_SIZE) {
+                const userIdBatch = userIds.slice(i, i + DB_BATCH_SIZE);
+                const notificationData = userIdBatch.map(userId => ({
+                    userId: userId,
                     type: this.validateType(data?.type),
                     title,
                     titleHi: data?.titleHi || null,
@@ -162,12 +316,9 @@ export class NotificationService {
                     data: notificationData
                 });
             }
-
-            return response;
-        } catch (error) {
-            console.error('Error sending message to topic:', error);
-            throw error;
         }
+
+        return { successCount, failureCount, responses: allResponses };
     }
 
     /**

@@ -53,3 +53,18 @@ export const uploadBufferToCloudinary = async (buffer: Buffer, folder: string = 
         uploadStream.end(buffer);
     });
 };
+
+export const listFromCloudinary = async (folder: string = 'notifications', maxResults: number = 20) => {
+    try {
+        const result = await cloudinary.api.resources({
+            type: 'upload',
+            prefix: folder,
+            max_results: maxResults,
+            sort_by: 'created_at',
+            direction: 'desc',
+        });
+        return result.resources;
+    } catch (error) {
+        throw error;
+    }
+};

@@ -109,7 +109,10 @@ export const sendManualNotification = async (
   next: NextFunction
 ): Promise<void | Response> => {
   try {
-    const { title, body, titleHi, messageHi, imageUrl, topic = 'all_users', type, slug, productId, url, userId } = req.body;
+    const {
+      title, body, titleHi, messageHi, imageUrl, topic = 'all_users', type, slug, productId, url, userId,
+      platform, registrationPeriod, daysAgo, cropId
+    } = req.body;
 
     if (!title || !body) {
       return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Title and body are required', 400);
@@ -126,14 +129,11 @@ export const sendManualNotification = async (
     if (titleHi) data.titleHi = String(titleHi);
     if (messageHi) data.messageHi = String(messageHi);
 
-    let response;
+    let response: any;
     if (userId && topic === 'all_users') {
       // Send to specific user
       const fcmTokens = await prisma.fcmToken.findMany({
-        where: {
-          userId,
-          isActive: true,
-        },
+        where: { userId, isActive: true },
         select: { token: true },
       });
 
@@ -159,8 +159,78 @@ export const sendManualNotification = async (
         })),
       };
     } else {
-      // Send to topic
-      response = await NotificationService.sendToTopic(topic, title, body, imageUrl, data);
+      // Handle advanced targeting
+      const userWhere: any = { isActive: true };
+      const fcmWhere: any = { isActive: true };
+      let useAdvancedTargeting = false;
+
+      if (topic === 'farmers') {
+        userWhere.role = 'FARMER';
+        useAdvancedTargeting = true;
+      } else if (topic === 'dealers') {
+        userWhere.role = 'DEALER';
+        useAdvancedTargeting = true;
+      }
+
+      if (platform && platform !== 'all') {
+        fcmWhere.platform = platform;
+        useAdvancedTargeting = true;
+      }
+
+      if (registrationPeriod) {
+        if (registrationPeriod === 'new_users' && daysAgo) {
+          const daysParams = parseInt(daysAgo);
+          const dateAgo = new Date();
+          dateAgo.setDate(dateAgo.getDate() - daysParams);
+          userWhere.createdAt = { gte: dateAgo };
+          useAdvancedTargeting = true;
+        } else if (registrationPeriod === 'this_month') {
+          const dateAgo = new Date();
+          dateAgo.setDate(1);
+          dateAgo.setHours(0, 0, 0, 0);
+          userWhere.createdAt = { gte: dateAgo };
+          useAdvancedTargeting = true;
+        } else if (registrationPeriod === 'this_year') {
+          const dateAgo = new Date();
+          dateAgo.setMonth(0, 1);
+          dateAgo.setHours(0, 0, 0, 0);
+          userWhere.createdAt = { gte: dateAgo };
+          useAdvancedTargeting = true;
+        } else if (registrationPeriod === 'crop_preference' && cropId && cropId !== 'all') {
+          userWhere.crops = {
+            some: { cropId }
+          };
+          useAdvancedTargeting = true;
+        }
+      }
+
+      if (useAdvancedTargeting) {
+        const users = await prisma.user.findMany({
+          where: userWhere,
+          select: { id: true }
+        });
+        const targetUserIds = users.map(u => u.id);
+
+        if (targetUserIds.length > 0) {
+          fcmWhere.userId = { in: targetUserIds };
+          const tokens = await prisma.fcmToken.findMany({
+            where: fcmWhere,
+            select: { token: true }
+          });
+
+          if (tokens.length > 0) {
+            const tokenStrings = tokens.map(t => t.token);
+            response = await NotificationService.sendMulticast(tokenStrings, title, body, imageUrl, data, targetUserIds);
+          } else {
+            response = { message: "Targeting criteria matched users but no active tokens were found." };
+          }
+        } else {
+          response = { message: "No users matched the targeting criteria." };
+        }
+      } else {
+        // Send to topic
+        response = await NotificationService.sendToTopic(topic, title, body, imageUrl, data);
+      }
     }
 
     sendSuccess(res, {

@@ -406,9 +406,16 @@ export const getProductBySlug = async (
 ): Promise<void | Response> => {
   try {
     const { slug } = req.params;
+    console.log(`🔍 [ProductsController] Fetching product by Slug or ID: ${slug}`);
 
-    const product = await prisma.product.findUnique({
-      where: { slug },
+    // Search by both slug AND id to handle different deep-linking formats
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { id: slug }
+        ]
+      },
       include: {
         category: {
           select: { id: true, name: true, nameHi: true },

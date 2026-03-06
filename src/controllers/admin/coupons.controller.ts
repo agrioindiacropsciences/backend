@@ -42,7 +42,7 @@ export const listCoupons = async (
       prisma.productCoupon.findMany({
         where,
         include: {
-          user: { select: { fullName: true, phoneNumber: true } },
+          user: { select: { id: true, fullName: true, phoneNumber: true, profileImageUrl: true } },
           redemptions: {
             include: {
               tier: {
@@ -77,12 +77,17 @@ export const listCoupons = async (
           is_used: c.isRedeemed,
           reward_type: redemption?.prizeType || null,
           reward_value: redemption?.prizeValue ? Number(redemption.prizeValue) : null,
-          used_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
-          redeemed_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
+          reward_image: tier?.imageUrl || null,
+          used_by: user ? { id: user.id || null, name: user.fullName, phone: user.phoneNumber, phone_number: user.phoneNumber, image: user.profileImageUrl } : null,
+          redeemed_by: user ? { id: user.id || null, name: user.fullName, phone: user.phoneNumber, phone_number: user.phoneNumber, image: user.profileImageUrl } : null,
           used_at: c.redeemedAt,
           expiry_date: null,
           created_at: c.createdAt,
-          auth_code: c.authCode // Extra field if frontend wants to see it
+          auth_code: c.authCode,
+          serial_number: c.serialNumber,
+          is_scratched: redemption?.isScratched || false,
+          scanned_at: redemption?.scannedAt || null,
+          scratched_at: redemption?.scratchedAt || null,
         };
       }),
       pagination: createPagination(total, page, limit),
@@ -204,6 +209,7 @@ export const getCouponDetails = async (
             fullName: true,
             phoneNumber: true,
             email: true,
+            profileImageUrl: true,
           },
         },
         redemptions: {
@@ -235,13 +241,17 @@ export const getCouponDetails = async (
       is_used: coupon.isRedeemed,
       reward_type: tier?.rewardType || null,
       reward_value: tier?.rewardValue ? Number(tier.rewardValue) : null,
-      used_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
-      redeemed_by: user ? { name: user.fullName, phone: user.phoneNumber } : null,
+      reward_image: tier?.imageUrl || null,
+      used_by: user ? { id: user.id, name: user.fullName, phone: user.phoneNumber, phone_number: user.phoneNumber, image: user.profileImageUrl } : null,
+      redeemed_by: user ? { id: user.id, name: user.fullName, phone: user.phoneNumber, phone_number: user.phoneNumber, image: user.profileImageUrl } : null,
       used_at: coupon.redeemedAt,
       expiry_date: null,
       created_at: coupon.createdAt,
       auth_code: coupon.authCode,
-      scanned_at: null // or usage log?
+      serial_number: coupon.serialNumber,
+      is_scratched: redemption?.isScratched || false,
+      scanned_at: redemption?.scannedAt || null,
+      scratched_at: redemption?.scratchedAt || null,
     });
   } catch (error) {
     next(error);

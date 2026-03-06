@@ -194,7 +194,7 @@ export const getStats = async (
       prisma.scanRedemption.count({ where: { userId } }),
       prisma.scanRedemption.findMany({
         where: { userId },
-        select: { prizeValue: true, status: true, scannedAt: true },
+        select: { prizeValue: true, status: true, scannedAt: true, couponId: true, productCouponId: true },
       }),
       prisma.scanRedemption.findFirst({
         where: { userId },
@@ -203,12 +203,28 @@ export const getStats = async (
       }),
     ]);
 
-    const couponsWon = redemptions.length;
-    const rewardsClaimed = redemptions.filter(r => r.status === 'CLAIMED').length;
-    const totalSavings = redemptions.reduce((sum, r) => sum + Number(r.prizeValue), 0);
+    // Deduplicate to get accurate counts for unique coupons won and claimed
+    const uniqueScansSet = new Set<string>();
+    const uniqueClaimedCouponIds = new Set<string>();
+    let totalSavings = 0;
+
+    redemptions.forEach(r => {
+      // Robust unique key
+      const key = (r.couponId || r.productCouponId || '').trim();
+      if (key) {
+        uniqueScansSet.add(key);
+        if (['CLAIMED', 'VERIFIED'].includes(r.status)) {
+          uniqueClaimedCouponIds.add(key);
+        }
+      }
+      totalSavings += Number(r.prizeValue);
+    });
+
+    const couponsWon = uniqueScansSet.size;
+    const rewardsClaimed = uniqueClaimedCouponIds.size;
 
     sendSuccess(res, {
-      total_scans: totalScans,
+      total_scans: uniqueScansSet.size || totalScans,
       coupons_won: couponsWon,
       rewards_claimed: rewardsClaimed,
       last_scan_date: lastScan?.scannedAt || null,
@@ -366,7 +382,7 @@ export const getRewards = async (
       where.status = statusFilter.toUpperCase();
     }
 
-    const [redemptions, total, summary] = await Promise.all([
+    const [rawRedemptions, total, summary] = await Promise.all([
       prisma.scanRedemption.findMany({
         where,
         include: {
@@ -378,11 +394,12 @@ export const getRewards = async (
             }
           },
           tier: true,
+          productCoupon: true,
           distributor: { select: { id: true, businessName: true } },
         },
         orderBy: { scannedAt: 'desc' },
         skip,
-        take: limit,
+        take: limit * 2, // Fetch double to account for potential duplicates
       }),
       prisma.scanRedemption.count({ where }),
       prisma.scanRedemption.groupBy({
@@ -392,6 +409,26 @@ export const getRewards = async (
         _sum: { prizeValue: true },
       }),
     ]);
+
+    // Deduplicate redemptions by coupon code
+    const uniqueRedemptionsMap = new Map();
+    rawRedemptions.forEach(r => {
+      const rawCode = r.coupon?.code || r.productCoupon?.serialNumber || r.productCouponId;
+      const cleanCode = (rawCode || '').trim();
+      const key = cleanCode || r.productCouponId || r.couponId || r.id;
+
+      if (key) {
+        const existing = uniqueRedemptionsMap.get(key);
+        const isBetterStatus = (r.status === 'CLAIMED' || r.status === 'VERIFIED') &&
+          !(existing?.status === 'CLAIMED' || existing?.status === 'VERIFIED');
+
+        if (!existing || isBetterStatus) {
+          uniqueRedemptionsMap.set(key, r);
+        }
+      }
+    });
+
+    const redemptions = Array.from(uniqueRedemptionsMap.values());
 
     const formattedRewards = redemptions.map(r => {
       const prizeType = r.tier?.rewardType || r.prizeType;
@@ -677,7 +714,7 @@ export const scratchReward = async (
 
     const updated = await prisma.scanRedemption.update({
       where: { id },
-      data: { isScratched: true },
+      data: { isScratched: true, scratchedAt: new Date() },
     });
 
     sendSuccess(res, { is_scratched: updated.isScratched }, 'Reward marked as scratched');

@@ -55,12 +55,16 @@ export const listUsers = async (
       prisma.user.findMany({
         where,
         include: {
-          crops: {
-            include: { crop: { select: { name: true } } },
-          },
           _count: {
             select: { redemptions: true },
           },
+          redemptions: {
+            include: {
+              coupon: { select: { code: true } },
+              productCoupon: { select: { serialNumber: true } },
+            },
+            take: 100,
+          }
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -70,28 +74,22 @@ export const listUsers = async (
     ]);
 
     sendSuccess(res, {
-      users: users.map(user => ({
-        id: user.id,
-        name: user.fullName,
-        full_name: user.fullName,
-        phone_number: user.phoneNumber,
-        mobile: user.phoneNumber,
-        email: user.email,
-        pin_code: user.pinCode,
-        pincode: user.pinCode,
-        full_address: user.fullAddress,
-        state: user.state,
-        district: user.district,
-        location: user.district && user.state ? `${user.district}, ${user.state}` : null,
-        profile_image_url: user.profileImageUrl,
-        crops: user.crops.map(c => c.crop.name),
-        total_scans: user._count.redemptions,
-        status: !user.isActive ? 'Suspended' : user.fullName ? 'Active' : 'Pending',
-        role: !user.isActive ? 'SUSPENDED' : user.fullName ? 'Active' : 'Pending',
-        is_active: user.isActive,
-        joined_date: formatDate(user.createdAt),
-        created_at: user.createdAt,
-      })),
+      users: users.map(user => {
+        return {
+          id: user.id,
+          name: user.fullName,
+          full_name: user.fullName,
+          phone_number: user.phoneNumber,
+          mobile: user.phoneNumber,
+          email: user.email,
+          pincode: user.pinCode,
+          total_scans: user._count.redemptions,
+          created_at: user.createdAt,
+          profile_image_url: user.profileImageUrl,
+          role: user.isActive ? 'Active' : 'SUSPENDED',
+          is_active: user.isActive,
+        };
+      }),
       pagination: createPagination(total, page, limit),
     });
   } catch (error) {
@@ -122,7 +120,7 @@ export const getUserDetails = async (
             productCoupon: true,
           },
           orderBy: { scannedAt: 'desc' },
-          take: 20,
+          take: 100, // Fetch more to ensure we have room to deduplicate
         },
         _count: {
           select: { redemptions: true },
@@ -137,6 +135,37 @@ export const getUserDetails = async (
     const claimedCount = await prisma.scanRedemption.count({
       where: { userId: id, status: { in: ['CLAIMED', 'VERIFIED'] } },
     });
+
+    // Extremely robust deduplication using trimmed codes as primary key
+    const uniqueRedemptionsMap = new Map();
+
+    user.redemptions.forEach(r => {
+      const rawCode = r.coupon?.code || r.productCoupon?.serialNumber;
+      const cleanCode = (rawCode || '').trim();
+
+      // Use code as the primary key for deduplication (what user sees)
+      // Fallback to IDs only if code is missing
+      const key = cleanCode || r.productCouponId || r.couponId || r.id;
+
+      if (key) {
+        const existing = uniqueRedemptionsMap.get(key);
+        // Prioritize CLAIMED status
+        const isBetterStatus = (r.status === 'CLAIMED' || r.status === 'VERIFIED') &&
+          !(existing?.status === 'CLAIMED' || existing?.status === 'VERIFIED');
+
+        if (!existing || isBetterStatus) {
+          uniqueRedemptionsMap.set(key, r);
+        }
+      }
+    });
+
+    const dedupedRedemptions = Array.from(uniqueRedemptionsMap.values());
+
+    // Recalculate counts based on unique redemptions
+    const totalUniqueScans = dedupedRedemptions.length;
+    const totalUniqueRewards = dedupedRedemptions.filter(r =>
+      ['CLAIMED', 'VERIFIED'].includes(r.status)
+    ).length;
 
     sendSuccess(res, {
       id: user.id,
@@ -155,13 +184,13 @@ export const getUserDetails = async (
       is_active: user.isActive,
       created_at: user.createdAt,
       last_login: user.lastLogin,
-      total_scans: user._count.redemptions,
-      total_rewards: claimedCount,
+      total_scans: totalUniqueScans,
+      total_rewards: totalUniqueRewards,
       crops: user.crops.map(c => ({
         id: c.crop.id,
         name: c.crop.name,
       })),
-      recent_redemptions: user.redemptions.map(r => ({
+      recent_redemptions: dedupedRedemptions.map(r => ({
         id: r.id,
         coupon_code: r.coupon?.code || r.productCoupon?.serialNumber || 'N/A',
         prize_type: r.prizeType,

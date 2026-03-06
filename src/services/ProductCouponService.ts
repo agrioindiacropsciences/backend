@@ -136,14 +136,21 @@ class ProductCouponService {
                 throw new AppError('Coupon already redeemed', ErrorCodes.COUPON_USED, 400);
             }
 
-            await tx.productCoupon.update({
-                where: { id: coupon.id },
+            const updateResult = await tx.productCoupon.updateMany({
+                where: {
+                    id: coupon.id,
+                    isRedeemed: false
+                },
                 data: {
                     isRedeemed: true,
                     redeemedAt: new Date(),
                     redeemedBy: userId,
                 },
             });
+
+            if (updateResult.count === 0) {
+                throw new AppError('Coupon already redeemed', ErrorCodes.COUPON_USED, 400);
+            }
 
             // 4. Reward Logic
             // Get all tiers for this campaign
