@@ -5,48 +5,60 @@ import * as admin from 'firebase-admin';
  * Handles both local file-based credentials and production environment variables.
  */
 const getCredentials = () => {
-    // 1. Check for environment variables (Best for production like Vercel/Render)
-    if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-        let privateKey = process.env.FIREBASE_PRIVATE_KEY.trim();
+    const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
 
-        // Remove any surrounding quotes (matches "key" or 'key')
-        privateKey = privateKey.replace(/^["']|["']$/g, '');
+    // Check for individual environment variables (best for production like Render/Vercel)
+    if (FIREBASE_PRIVATE_KEY && FIREBASE_CLIENT_EMAIL) {
+        let pk = FIREBASE_PRIVATE_KEY.trim();
+
+        // Remove surrounding quotes if present (often happens with pasted values in some dashboards)
+        pk = pk.replace(/^["']|["']$/g, '');
 
         // Replace literal \n markers with real newline characters
-        // We handle both \n and \\n just in case of double escaping
-        privateKey = privateKey.replace(/\\n/g, '\n');
+        pk = pk.replace(/\\n/g, '\n');
 
-        // Verify the key structure (must start and end with standard PEM tags)
-        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-            console.error('[Firebase] Private key is missing BEGIN tag.');
+        // Ensure header and footer have proper newlines (pasted keys might be missing them)
+        if (!pk.includes('\n') && pk.includes('-----BEGIN PRIVATE KEY-----')) {
+            // If it's all one line, try a global fix (this happens sometimes on Render)
+            pk = pk.replace(/-----BEGIN PRIVATE KEY-----/, '-----BEGIN PRIVATE KEY-----\n')
+                .replace(/-----END PRIVATE KEY-----/, '\n-----END PRIVATE KEY-----\n');
+        } else {
+            // Standard fix: Ensure exactly one final newline
+            pk = pk.trim() + '\n';
         }
 
-        console.log(`[Firebase] Initializing with Env Vars. PK Length: ${privateKey.length}, Project: ${process.env.FIREBASE_PROJECT_ID || 'agrio-india-crop-science'}`);
+        console.log(`[Firebase] Env Init. PK Length: ${pk.length}. Project: ${FIREBASE_PROJECT_ID || 'agrio-india-crop-science'}`);
 
         return {
-            projectId: process.env.FIREBASE_PROJECT_ID || 'agrio-india-crop-science',
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: privateKey,
+            projectId: FIREBASE_PROJECT_ID || 'agrio-india-crop-science',
+            clientEmail: FIREBASE_CLIENT_EMAIL,
+            privateKey: pk,
         };
     }
 
-    // 2. Fallback to local file for development
+    // Fallback to local file for development
     try {
         const path = require('path');
-        return require(path.join(__dirname, '../config/firebase-service-account.json'));
+        const serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
+        return require(serviceAccountPath);
     } catch (error) {
-        console.warn("Firebase service account file not found, and environment variables are missing.");
+        console.warn("[Firebase] No credentials found in env or local config.");
         return null;
     }
 };
 
-const credentials = getCredentials();
+const creds = getCredentials();
 
-if (!admin.apps.length && credentials) {
-    admin.initializeApp({
-        credential: admin.credential.cert(credentials),
-        storageBucket: "agrio-india-crop-science.firebasestorage.app"
-    });
+if (!admin.apps.length && creds) {
+    try {
+        admin.initializeApp({
+            credential: admin.credential.cert(creds as admin.ServiceAccount),
+            storageBucket: "agrio-india-crop-science.firebasestorage.app"
+        });
+        console.log("[Firebase] Successfully initialized.");
+    } catch (e) {
+        console.error("[Firebase] Initialization error:", e);
+    }
 }
 
 export const messaging = admin.messaging();
