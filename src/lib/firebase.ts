@@ -7,11 +7,23 @@ import * as admin from 'firebase-admin';
 const getCredentials = () => {
     // 1. Check for environment variables (Best for production like Vercel/Render)
     if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+        let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+        // Remove surrounding quotes if present (often happens if user pastes with quotes)
+        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+            privateKey = privateKey.substring(1, privateKey.length - 1);
+        } else if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
+            privateKey = privateKey.substring(1, privateKey.length - 1);
+        }
+
+        // Replace literal \n markers with actual newline characters
+        // We do this twice to handle potential double-escaping (common on some platforms)
+        privateKey = privateKey.replace(/\\n/g, '\n');
+
         return {
             projectId: process.env.FIREBASE_PROJECT_ID || 'agrio-india-crop-science',
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            // Replace literal \n strings with real newline characters
-            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            privateKey: privateKey,
         };
     }
 
