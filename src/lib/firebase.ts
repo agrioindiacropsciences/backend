@@ -5,16 +5,24 @@ import * as admin from 'firebase-admin';
  * Handles both local file-based credentials and production environment variables.
  */
 const getCredentials = () => {
-    const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
+    const { FIREBASE_CONFIG_BASE64, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, FIREBASE_PROJECT_ID } = process.env;
 
-    // Check for individual environment variables (best for production like Render/Vercel)
+    // 1. BEST METHOD: Base64 JSON (Foolproof against formatting issues)
+    if (FIREBASE_CONFIG_BASE64) {
+        try {
+            const jsonStr = Buffer.from(FIREBASE_CONFIG_BASE64, 'base64').toString('utf8');
+            const creds = JSON.parse(jsonStr);
+            console.log(`[Firebase] Initialized via Base64 Config. Project: ${creds.project_id}`);
+            return creds;
+        } catch (e) {
+            console.error("[Firebase] Failed to parse FIREBASE_CONFIG_BASE64:", e);
+        }
+    }
+
+    // 2. Individual Environment Variables
     if (FIREBASE_PRIVATE_KEY && FIREBASE_CLIENT_EMAIL) {
         let pk = FIREBASE_PRIVATE_KEY.trim();
-
-        // Remove surrounding quotes if present (often happens with pasted values in some dashboards)
         pk = pk.replace(/^["']|["']$/g, '');
-
-        // Replace literal \n markers with real newline characters
         pk = pk.replace(/\\n/g, '\n');
 
         // Ensure header and footer have proper newlines (pasted keys might be missing them)
@@ -27,8 +35,7 @@ const getCredentials = () => {
             pk = pk.trim() + '\n';
         }
 
-        console.log(`[Firebase] Env Init. PK Length: ${pk.length}. Project: ${FIREBASE_PROJECT_ID || 'agrio-india-crop-science'}`);
-
+        console.log(`[Firebase] Initialized via Individual Env Vars. PK Length: ${pk.length}. Project: ${FIREBASE_PROJECT_ID || 'agrio-india-crop-science'}`);
         return {
             projectId: FIREBASE_PROJECT_ID || 'agrio-india-crop-science',
             clientEmail: FIREBASE_CLIENT_EMAIL,
@@ -36,7 +43,7 @@ const getCredentials = () => {
         };
     }
 
-    // Fallback to local file for development
+    // 3. Local File Fallback
     try {
         const path = require('path');
         const serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
