@@ -75,7 +75,7 @@ async function checkCode(code: string) {
 }
 
 async function main() {
-    const codes = ["A104946", "84885121"];
+    const codes = ["A105448", "15499408"];
     for (const code of codes) {
         await checkCode(code);
     }

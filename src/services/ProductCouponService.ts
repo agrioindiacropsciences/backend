@@ -105,7 +105,10 @@ class ProductCouponService {
         }
 
         if (coupon.isRedeemed) {
-            throw new AppError('Coupon already redeemed', ErrorCodes.COUPON_USED, 400);
+            if (coupon.redeemedBy === userId) {
+                throw new AppError('You have already redeemed this coupon', ErrorCodes.COUPON_USED, 400);
+            }
+            throw new AppError('This coupon has already been redeemed by another person', ErrorCodes.COUPON_USED, 400);
         }
 
         // 2. Check for Active Campaign
@@ -133,7 +136,10 @@ class ProductCouponService {
                 where: { id: coupon.id },
             });
             if (lockedCoupon?.isRedeemed) {
-                throw new AppError('Coupon already redeemed', ErrorCodes.COUPON_USED, 400);
+                if (lockedCoupon.redeemedBy === userId) {
+                    throw new AppError('You have already redeemed this coupon', ErrorCodes.COUPON_USED, 400);
+                }
+                throw new AppError('This coupon has already been redeemed by another person', ErrorCodes.COUPON_USED, 400);
             }
 
             const updateResult = await tx.productCoupon.updateMany({
@@ -149,7 +155,12 @@ class ProductCouponService {
             });
 
             if (updateResult.count === 0) {
-                throw new AppError('Coupon already redeemed', ErrorCodes.COUPON_USED, 400);
+                // If update fails, it means it's been redeemed in parallel. Check by who.
+                const finalCoupon = await tx.productCoupon.findUnique({ where: { id: coupon.id } });
+                if (finalCoupon?.redeemedBy === userId) {
+                    throw new AppError('You have already redeemed this coupon', ErrorCodes.COUPON_USED, 400);
+                }
+                throw new AppError('This coupon has already been redeemed by another person', ErrorCodes.COUPON_USED, 400);
             }
 
             // 4. Reward Logic
