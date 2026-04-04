@@ -13,6 +13,12 @@ router.post(
     '/',
     requireRole('SUPER_ADMIN', 'ADMIN'),
     upload.fields([
+        { name: 'aadhaar_front_photo', maxCount: 1 },
+        { name: 'aadhaar_back_photo', maxCount: 1 },
+        { name: 'pan_photo', maxCount: 1 },
+        { name: 'license_photo', maxCount: 1 },
+        { name: 'gst_photo', maxCount: 1 },
+        { name: 'check_photo', maxCount: 1 },
         { name: 'signature', maxCount: 1 },
         { name: 'stamp', maxCount: 1 }
     ]),
@@ -27,6 +33,12 @@ router.put(
     '/:id',
     requireRole('SUPER_ADMIN', 'ADMIN'),
     upload.fields([
+        { name: 'aadhaar_front_photo', maxCount: 1 },
+        { name: 'aadhaar_back_photo', maxCount: 1 },
+        { name: 'pan_photo', maxCount: 1 },
+        { name: 'license_photo', maxCount: 1 },
+        { name: 'gst_photo', maxCount: 1 },
+        { name: 'check_photo', maxCount: 1 },
         { name: 'signature', maxCount: 1 },
         { name: 'stamp', maxCount: 1 }
     ]),
@@ -35,6 +47,10 @@ router.put(
 
 // DELETE /api/v1/admin/distributors/:id
 router.delete('/:id', requireRole('SUPER_ADMIN'), distributorsController.deleteDistributor);
+
+// PATCH /api/v1/admin/distributors/:id/verify
+// Used by admin website to APPROVE or REJECT a dealer's onboarding application
+router.patch('/:id/verify', requireRole('SUPER_ADMIN', 'ADMIN'), distributorsController.verifyDistributor);
 
 export default router;
 

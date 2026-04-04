@@ -55,10 +55,17 @@ export const getRewardCertificatePdf = async (
 
     const redemption = await prisma.scanRedemption.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        scannedAt: true,
+        certificateNumber: true,
+        prizeType: true,
+        prizeValue: true,
+        assignedRank: true,
         coupon: { select: { code: true } },
         productCoupon: { select: { serialNumber: true, authCode: true } },
-        tier: true,
+        tier: { select: { rewardName: true, imageUrl: true } },
         user: { select: { fullName: true, phoneNumber: true, fullAddress: true } },
         distributor: { select: { businessName: true } },
       },
@@ -86,6 +93,7 @@ export const getRewardCertificatePdf = async (
       coupon_code: redemption.coupon?.code || redemption.productCoupon?.serialNumber || 'N/A',
       won_date: redemption.scannedAt,
       verification_id: redemption.id,
+      certificate_number: redemption.certificateNumber?.toString(),
       rank: redemption.assignedRank?.toString(),
       distributor_name: redemption.distributor?.businessName,
       serial_number: redemption.productCoupon?.serialNumber,

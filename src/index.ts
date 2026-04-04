@@ -1,7 +1,9 @@
 import 'dotenv/config';
+process.env.TZ = 'Asia/Kolkata';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { prisma } from './lib/prisma';
 
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
@@ -50,12 +52,30 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(rateLimiter);
 
 // Health check endpoint
-app.get('/health', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Agrio India API is running',
+app.get('/health', async (_req, res) => {
+  let dbStatus = 'disconnected';
+  let canConnect = false;
+
+  try {
+    // Quick probe to check database health
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = 'connected';
+    canConnect = true;
+  } catch (error) {
+    console.error('🔴 Health Check DB Fail:', error);
+    dbStatus = `error: ${error instanceof Error ? error.message : 'Unknown'}`;
+  }
+
+  const status = canConnect ? 200 : 503;
+  
+  res.status(status).json({
+    success: canConnect,
+    status: canConnect ? 'HEALTHY' : 'UNHEALTHY',
+    database: dbStatus,
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    version: '1.0.1',
   });
 });
 

@@ -48,6 +48,7 @@ export const updateProfileSchema = z.object({
   full_address: z.string().max(500).optional(),
   state: z.string().optional(),
   district: z.string().optional(),
+  role: z.enum(['FARMER', 'DEALER']).optional(),
 });
 
 export const updateLanguageSchema = z.object({

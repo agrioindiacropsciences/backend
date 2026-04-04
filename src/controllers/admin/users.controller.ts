@@ -254,6 +254,22 @@ export const deleteUser = async (
 
     // Use a transaction to delete all related data first
     await prisma.$transaction(async (tx) => {
+      const distributor = await tx.distributor.findUnique({
+        where: { ownerId: id },
+        select: { id: true },
+      });
+
+      if (distributor) {
+        await tx.scanRedemption.updateMany({
+          where: { verifiedByDistributorId: distributor.id },
+          data: { verifiedByDistributorId: null },
+        });
+
+        await tx.distributor.delete({
+          where: { id: distributor.id },
+        });
+      }
+
       // 1. Delete Refresh Tokens
       await tx.refreshToken.deleteMany({ where: { userId: id } });
 
@@ -330,4 +346,3 @@ export const exportUsers = async (
     next(error);
   }
 };
-

@@ -64,8 +64,14 @@ export const errorHandler = (
     }
     return sendError(res, ErrorCodes.VALIDATION_ERROR, err.message, 400);
   }
-  if (err.message === 'Only images (jpeg, jpg, png, webp) are allowed') {
+  if (
+    err.message === 'Only images (jpeg, jpg, png, webp, heic, heif) are allowed'
+  ) {
     return sendError(res, ErrorCodes.VALIDATION_ERROR, err.message, 400);
+  }
+
+  if (err.message.includes('IP not whitelisted')) {
+    return sendError(res, ErrorCodes.FORBIDDEN, err.message, 403);
   }
 
   // JWT errors
@@ -117,6 +123,15 @@ export const errorHandler = (
     );
   }
 
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    return sendError(
+      res,
+      ErrorCodes.SERVER_ERROR,
+      'Database connection is currently unavailable',
+      503,
+    );
+  }
+
   // Default server error
   return sendError(
     res,
@@ -125,4 +140,3 @@ export const errorHandler = (
     500
   );
 };
-

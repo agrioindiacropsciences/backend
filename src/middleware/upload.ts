@@ -19,14 +19,35 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (_req: any, file: Express.Multer.File, cb: any) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
-    const mimetype = allowedTypes.test(file.mimetype);
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const allowedMimeTypes = new Set([
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+    ]);
+    const allowedExtensions = new Set([
+        '.jpeg',
+        '.jpg',
+        '.png',
+        '.webp',
+        '.heic',
+        '.heif',
+    ]);
 
-    if (mimetype && extname) {
+    const normalizedMimeType = file.mimetype.toLowerCase();
+    const normalizedExtension = path.extname(file.originalname).toLowerCase();
+    const hasAllowedMimeType =
+        allowedMimeTypes.has(normalizedMimeType) ||
+        normalizedMimeType.startsWith('image/');
+    const hasAllowedExtension =
+        !normalizedExtension || allowedExtensions.has(normalizedExtension);
+
+    if (hasAllowedMimeType && hasAllowedExtension) {
         return cb(null, true);
     }
-    cb(new Error('Only images (jpeg, jpg, png, webp) are allowed'));
+    cb(new Error('Only images (jpeg, jpg, png, webp, heic, heif) are allowed'));
 };
 
 export const upload = multer({

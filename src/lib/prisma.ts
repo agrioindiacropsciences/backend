@@ -34,42 +34,65 @@ function getDatabaseUrl(): string {
     );
   }
 
-  // Construct connection URL with connection_limit to prevent "too many clients"
+  // Construct connection URL with connection_limit
   const sslMode = process.env.DB_SSL === 'false' ? 'disable' : 'require';
-  const connLimit = process.env.DB_CONNECTION_LIMIT || '10';
-  const poolTimeout = process.env.DB_POOL_TIMEOUT || '20';
-  return `${dialect}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}?sslmode=${sslMode}&connection_limit=${connLimit}&pool_timeout=${poolTimeout}`;
+  const connLimit = process.env.DB_CONNECTION_LIMIT || '5';
+  const poolTimeout = process.env.DB_POOL_TIMEOUT || '30';
+  const connectTimeout = process.env.DB_CONNECT_TIMEOUT || '30';
+  const socketTimeout = process.env.DB_SOCKET_TIMEOUT || '60';
+
+  return `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}?sslmode=${sslMode}&connection_limit=${connLimit}&pool_timeout=${poolTimeout}&connect_timeout=${connectTimeout}&socket_timeout=${socketTimeout}`;
 }
 
 // Set DATABASE_URL in environment for Prisma (with connection pooling)
 let databaseUrl = getDatabaseUrl();
 
-// Stronger enforcement of connection limits for dev/small tiers
-const limit = process.env.DB_CONNECTION_LIMIT || '2';
-const timeout = process.env.DB_POOL_TIMEOUT || '10';
+// Standardize postgres:// to postgresql:// if needed
+if (databaseUrl.startsWith('postgres://')) {
+  databaseUrl = databaseUrl.replace('postgres://', 'postgresql://');
+}
+
+// Stronger enforcement of connection limits
+const limit = process.env.DB_CONNECTION_LIMIT || '3';
+const poolTimeout = process.env.DB_POOL_TIMEOUT || '30';
+const connectTimeout = process.env.DB_CONNECT_TIMEOUT || '30';
 
 if (!databaseUrl.includes('connection_limit')) {
   const sep = databaseUrl.includes('?') ? '&' : '?';
   databaseUrl += `${sep}connection_limit=${limit}`;
 } else {
-  // Override existing if it's too high
   databaseUrl = databaseUrl.replace(/connection_limit=\d+/, `connection_limit=${limit}`);
 }
 
 if (!databaseUrl.includes('pool_timeout')) {
   const sep = databaseUrl.includes('?') ? '&' : '?';
-  databaseUrl += `${sep}pool_timeout=${timeout}`;
+  databaseUrl += `${sep}pool_timeout=${poolTimeout}`;
+}
+
+if (!databaseUrl.includes('connect_timeout')) {
+  const sep = databaseUrl.includes('?') ? '&' : '?';
+  databaseUrl += `${sep}connect_timeout=${connectTimeout}`;
 }
 
 process.env.DATABASE_URL = databaseUrl;
 
 export const prisma = global.prisma || new PrismaClient({
-  log: ['error'], // Reduced logging to save resources
+  log: [
+    { emit: 'event', level: 'error' },
+    { emit: 'event', level: 'warn' },
+  ],
 });
 
-// Handle connection errors
-prisma.$on('error' as never, (e: any) => {
-  console.error('Prisma connection error:', e);
+// Type assertion to handle Prisma's complex event types in development
+const anyPrisma = prisma as any;
+
+// Handle connection events
+anyPrisma.$on('error', (e: any) => {
+  console.error('🔴 Prisma Critical Error:', e.message || e);
+});
+
+anyPrisma.$on('warn', (e: any) => {
+  console.warn('🟡 Prisma Warning:', e.message || e);
 });
 
 // Graceful shutdown

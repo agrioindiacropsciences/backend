@@ -73,11 +73,37 @@ model User {
   supportTickets  SupportTicket[]
   crops           UserCrop[]
   preferences     UserPreference?
+  distributor     Distributor?
+  distributorVerificationDraft DistributorVerificationDraft?
 
   @@index([phoneNumber])
   @@index([pinCode])
   @@index([state])
   @@map("users")
+}
+
+model DistributorVerificationDraft {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  panNumber             String?  @map("pan_number")
+  panStatus             String?  @map("pan_status")
+  panReferenceId        String?  @map("pan_reference_id")
+  panData               Json?    @map("pan_data")
+  gstNumber             String?  @map("gst_number")
+  gstStatus             String?  @map("gst_status")
+  gstReferenceId        String?  @map("gst_reference_id")
+  gstData               Json?    @map("gst_data")
+  aadhaarNumber         String?  @map("aadhaar_number")
+  aadhaarVerificationId String?  @map("aadhaar_verification_id")
+  aadhaarReferenceId    String?  @map("aadhaar_reference_id")
+  aadhaarStatus         String?  @map("aadhaar_status")
+  aadhaarUserDetails    Json?    @map("aadhaar_user_details")
+  aadhaarDocumentData   Json?    @map("aadhaar_document_data")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("distributor_verification_drafts")
 }
 
 model UserPreference {
@@ -200,6 +226,31 @@ model Distributor {
   stampImageUrl     String?               @map("stamp_image_url")
   isVerified        Boolean               @default(false) @map("is_verified")
   isActive          Boolean               @default(true) @map("is_active")
+  verificationStatus VerificationStatus   @default(PENDING) @map("verification_status")
+  dealerCode        String?               @unique @map("dealer_code")
+  
+  // Verification Documents
+  aadhaarNumber     String?               @map("aadhaar_number")
+  aadhaarFrontPhotoUrl String?            @map("aadhaar_front_photo_url")
+  aadhaarBackPhotoUrl  String?            @map("aadhaar_back_photo_url")
+  panNumber         String?               @map("pan_number")
+  panPhotoUrl       String?               @map("pan_photo_url")
+  licenseNumber     String?               @map("license_number")
+  licensePhotoUrl   String?               @map("license_photo_url")
+  gstNumber         String?               @map("gst_number")
+  gstPhotoUrl       String?               @map("gst_photo_url")
+  isAadhaarVerified Boolean               @default(false) @map("is_aadhaar_verified")
+  isPanVerified     Boolean               @default(false) @map("is_pan_verified")
+  isGstVerified     Boolean               @default(false) @map("is_gst_verified")
+  expectedBusinessVolume String?          @map("expected_business_volume")
+
+  // Security Deposit
+  securityDepositAmount      Decimal?       @map("security_deposit_amount") @db.Decimal(10, 2)
+  securityDepositCheckPhoto  String?       @map("security_deposit_check_photo")
+  securityDepositCheckNumber String?       @map("security_deposit_check_number")
+  bankName                   String?       @map("bank_name")
+  approvedSnapshot           Json?         @map("approved_snapshot")
+
   rating            Decimal?              @db.Decimal(2, 1)
   reviewCount       Int                   @default(0) @map("review_count")
   createdAt         DateTime              @default(now()) @map("created_at")
@@ -207,9 +258,12 @@ model Distributor {
   coverage          DistributorCoverage[]
   products          DistributorProduct[]
   redemptions       ScanRedemption[]
+  ownerId           String?               @unique @map("owner_id")
+  user              User?                 @relation(fields: [ownerId], references: [id])
 
   @@index([addressPincode])
   @@index([addressState])
+  @@index([dealerCode])
   @@map("distributors")
 }
 
@@ -326,6 +380,7 @@ model ScanRedemption {
   scratchedAt             DateTime?        @map("scratched_at")
   verifiedByDistributorId String?          @map("verified_by_distributor_id")
   acknowledgmentFileUrl   String?          @map("acknowledgment_file_url")
+  certificateNumber       BigInt?          @unique @default(autoincrement()) @map("certificate_number")
   scannedAt               DateTime         @default(now()) @map("scanned_at")
   verifiedAt              DateTime?        @map("verified_at")
   claimedAt               DateTime?        @map("claimed_at")
@@ -607,4 +662,10 @@ enum ConfigValueType {
 enum DistributionType {
   SEQUENTIAL
   RANDOM
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

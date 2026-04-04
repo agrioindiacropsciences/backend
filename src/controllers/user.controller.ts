@@ -21,6 +21,7 @@ export const getProfile = async (
         crops: {
           include: { crop: true },
         },
+        distributor: true,
       },
     });
 
@@ -48,6 +49,12 @@ export const getProfile = async (
       is_active: user.isActive,
       created_at: user.createdAt,
       last_login: user.lastLogin,
+      distributor: user.distributor ? {
+        id: user.distributor.id,
+        business_name: user.distributor.businessName,
+        verification_status: user.distributor.verificationStatus,
+        is_verified: user.distributor.isVerified,
+      } : null,
     });
   } catch (error) {
     next(error);
@@ -121,6 +128,7 @@ export const updateProfile = async (
     if (data.full_address !== undefined) updateData.fullAddress = data.full_address;
     if (data.state !== undefined) updateData.state = data.state;
     if (data.district !== undefined) updateData.district = data.district;
+    if (data.role !== undefined) updateData.role = data.role;
 
 
     // If pincode changed, lookup state/district
@@ -579,6 +587,22 @@ export const deleteAccount = async (
     // Delete user and all associated data in a transaction
     // Note: Most relations have onDelete: Cascade, but we handle others explicitly
     await prisma.$transaction(async (tx) => {
+      const distributor = await tx.distributor.findUnique({
+        where: { ownerId: userId },
+        select: { id: true },
+      });
+
+      if (distributor) {
+        await tx.scanRedemption.updateMany({
+          where: { verifiedByDistributorId: distributor.id },
+          data: { verifiedByDistributorId: null },
+        });
+
+        await tx.distributor.delete({
+          where: { id: distributor.id },
+        });
+      }
+
       // 1. Delete scan redemptions (no cascade defined)
       await tx.scanRedemption.deleteMany({
         where: { userId },
