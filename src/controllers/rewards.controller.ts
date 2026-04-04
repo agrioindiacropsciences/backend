@@ -68,6 +68,7 @@ export const getRewardCertificatePdf = async (
         tier: { select: { rewardName: true, imageUrl: true } },
         user: { select: { fullName: true, phoneNumber: true, fullAddress: true } },
         distributor: { select: { businessName: true } },
+        acknowledgmentFileUrl: true,
       },
     });
 
