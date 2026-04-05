@@ -105,7 +105,7 @@ export const generateRewardCertificate = async (data: CertificateData): Promise<
 
         // Format date
         const { format } = require('date-fns');
-        const formattedDate = format(new Date(new Date(data.won_date).getTime() + 5.5 * 60 * 60 * 1000), 'dd MMM yyyy, hh:mm a');
+        const formattedDate = format(new Date(data.won_date), 'dd MMM yyyy, hh:mm a');
 
         // 2. Personal Details
         renderSection(245, 'User Details', [
