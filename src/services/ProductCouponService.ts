@@ -223,7 +223,10 @@ class ProductCouponService {
                     status: 'WON',
                     reward: wonTier,
                     redemptionId: redemption.id,
-                    redemption,
+                    redemption: {
+                        ...redemption,
+                        certificateNumber: redemption.certificateNumber ? redemption.certificateNumber.toString() : null,
+                    },
                 };
             } else {
                 // Lost - Better luck next time
