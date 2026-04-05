@@ -5,6 +5,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { prisma } from './lib/prisma';
 
+// Permanent fix: Polyfill BigInt serialization for JSON.stringify to globally prevent TypeError
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { apiRouter } from './routes';
